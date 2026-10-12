@@ -17,7 +17,7 @@
 
 Agentic FMI turns Claude Code into a simulation assistant for [FMI](https://fmi-standard.org/) models (FMUs). Ask in plain language: inspect an FMU, simulate and compare runs, build new FMUs from Python or Modelica, connect them into systems and exchange those as [SSP](https://ssp-standard.org/) files, and steer a live simulation while a pane inside Claude Code charts it. Claude reads compact results (metrics and plots), decides the next experiment and acts again.
 
-<p align="center"><img src="docs/images/pane-live.png" alt="The Agentic FMI pane in Claude Code: a live PI controller and mass-spring-damper loop with its status, controls, values and charts" width="780"></p>
+<p align="center"><img src="docs/images/promo.webp" alt="A 20-second tour: simulate and compare runs, connect FMUs into a closed loop, steer a live run in the pane while its charts update, and ninja mode" width="780"></p>
 
 ## What you can do
 
