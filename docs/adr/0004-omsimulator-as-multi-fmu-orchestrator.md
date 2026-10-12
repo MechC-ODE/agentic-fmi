@@ -1,6 +1,6 @@
 # 0004. OMSimulator as the multi-FMU orchestrator
 
-- Status: Accepted (Phase 0 spike (c) passed; evidence in [spikes.md](../spikes.md)). Partly superseded by [0009](0009-systems-with-omsimulator.md): there is no `Instance` protocol (each engine is one `simulate(spec, dir, gate)` function), OMSimulator is a core dependency pinned by its installed tree, and the worker uses `doStep` with the result file off.
+- Status: Accepted (spike (c) passed; evidence in [spikes.md](../spikes.md)). Partly superseded by [0009](0009-systems-with-omsimulator.md): there is no `Instance` protocol (each engine is one `simulate(spec, dir, gate)` function), OMSimulator is a core dependency pinned by its installed tree, and the worker uses `doStep` with the result file off.
 - Date: 2026-10-09
 
 ## Context

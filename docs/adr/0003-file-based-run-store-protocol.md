@@ -18,7 +18,7 @@ A versioned file protocol under `<workspace>/.agentic-fmi/` is the only contract
 - `index.json` and `events.jsonl`.
 - Per run in `runs/<id>/`: `spec.json`, `status.json`, `summary.json`, `result.csv`, `log.txt`, `live.json`, `plots/` and a `commands/` inbox.
 
-Every document carries `"protocol": 1`. Additive changes keep the version, breaking changes bump it, and readers ignore unknown fields. Writes are atomic (a temporary file plus `os.replace`). [docs/protocol.md](../protocol.md) has the details. Phase 1 generates JSON Schemas from the pydantic models.
+Every document carries `"protocol": 1`. Additive changes keep the version, breaking changes bump it, and readers ignore unknown fields. Writes are atomic (a temporary file plus `os.replace`). [docs/protocol.md](../protocol.md) has the details. JSON Schemas are generated from the pydantic models.
 
 ## Consequences
 

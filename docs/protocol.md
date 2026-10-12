@@ -1,8 +1,8 @@
 # Run-store protocol
 
-> **Status: Accepted (v1, Phase 1).** The models live in [`src/agentic_fmi/store/protocol.py`](../src/agentic_fmi/store/protocol.py). The JSON Schemas generated from them are committed in [`docs/schemas/`](schemas/), and a drift test keeps the two in sync. Phase 2 extends v1 additively with build jobs (`BuildSpec`, `build.json`, the `fmu_built` event, the `build_failed` code; [ADR 0008](adr/0008-fmu-builds-as-supervised-jobs.md)). Phase 3 adds system runs (`SystemSpec` with `kind: "system"`, the `oms_changed` code; [ADR 0009](adr/0009-systems-with-omsimulator.md)). Phase 4 adds live runs ([ADR 0010](adr/0010-live-runs-and-the-pane.md)): `live` and `idle_limit_s` in both run specs, the `paused` state, `heartbeat_mono`, `speed` and `reason` in `status.json`, the `command` event, and three documents: commands in the [inbox](#inbox), their outcomes, and [`live.json`](#livejson). The pane's chart picker adds the `chart` action and `Command.names` (additive, protocol stays 1). The worker (`live.py`, `store/inbox.py`) writes and reads them; the server (`control.py`, behind `run_control` and `run_status(values)`) writes the commands and reads the outcomes and `live.json`. Response styles add one more additive file, [`preferences.json`](#preferencesjson).
+> **Status: Accepted (v1).** The models live in [`src/agentic_fmi/store/protocol.py`](../src/agentic_fmi/store/protocol.py). The JSON Schemas generated from them are committed in [`docs/schemas/`](schemas/), and a drift test keeps the two in sync. Version 1 grew additively: build jobs (`BuildSpec`, `build.json`, the `fmu_built` event, the `build_failed` code; [ADR 0008](adr/0008-fmu-builds-as-supervised-jobs.md)). System runs (`SystemSpec` with `kind: "system"`, the `oms_changed` code; [ADR 0009](adr/0009-systems-with-omsimulator.md)). Live runs ([ADR 0010](adr/0010-live-runs-and-the-pane.md)): `live` and `idle_limit_s` in both run specs, the `paused` state, `heartbeat_mono`, `speed` and `reason` in `status.json`, the `command` event, and three documents: commands in the [inbox](#inbox), their outcomes, and [`live.json`](#livejson). The pane's chart picker adds the `chart` action and `Command.names` (additive, protocol stays 1). The worker (`live.py`, `store/inbox.py`) writes and reads them; the server (`control.py`, behind `run_control` and `run_status(values)`) writes the commands and reads the outcomes and `live.json`. Response styles add one more additive file, [`preferences.json`](#preferencesjson).
 
-The run store is the only contract between the MCP server, the workers and (from Phase 4) the pane ([ADR 0003](adr/0003-file-based-run-store-protocol.md)). [ADR 0007](adr/0007-run-store-location-ids-and-supervision.md) decides its location, the run-ID grammar and supervision.
+The run store is the only contract between the MCP server, the workers and the pane ([ADR 0003](adr/0003-file-based-run-store-protocol.md)). [ADR 0007](adr/0007-run-store-location-ids-and-supervision.md) decides its location, the run-ID grammar and supervision.
 
 ## Location
 
@@ -27,7 +27,7 @@ The run store is the only contract between the MCP server, the workers and (from
       log.txt                worker stdout and stderr, including FMU log messages
       fmu/                   the extracted FMU while the worker runs; removed when it exits
       plots/*.png            PNGs rendered by run_plot
-    r13/                     one build job (spec kind "build", Phase 2)
+    r13/                     one build job (spec kind "build")
       spec.json              BuildSpec: source path and sha256, name, backend, options; immutable
       status.json            as for a run; t_start = t_stop = t = 0, progress 0 until finished
       source/<file>          private copy of the hashed source bytes; the worker builds from it
@@ -35,7 +35,7 @@ The run store is the only contract between the MCP server, the workers and (from
       build.log              the build tool's stdout and stderr
       build.json             BuildRecord of a successful build (the same record as below)
       log.txt                the worker's own output (tracebacks)
-    r14/                     one system run (spec kind "system", Phase 3)
+    r14/                     one system run (spec kind "system")
       spec.json              SystemSpec: components with FMU refs, connections, parameters, master, step; immutable
       status.json            as for a run
       summary.json           as for a run; variables are <component>.<variable>
@@ -43,7 +43,7 @@ The run store is the only contract between the MCP server, the workers and (from
       log.txt                worker and OMSimulator output (info and warning lines, error lines)
       work/                  fmus/<component>.fmu (hashed private copies), ssp/ (OMSimulator's model copies) and tmp/ (its TMPDIR); removed when the worker exits
       plots/*.png            as for a run
-    r15/                     one live run of either kind (spec live: true, Phase 4): the files of a run or system run, plus
+    r15/                     one live run of either kind (spec live: true): the files of a run or system run, plus
       live.json              LiveSnapshot: current values and chart history; the worker's heartbeat thread only; kept after the run
       commands/<id>.json     Command, <ms13>-<server|pane>-<rand8>.json; written once by the server or the pane
       outcomes/<id>.json     CommandOutcome, one per command file; the worker only
@@ -52,7 +52,7 @@ The run store is the only contract between the MCP server, the workers and (from
   <name>.fmu                 the built FMU
   build.json                 its BuildRecord; replaced only by an overwrite build
 
-<workspace>/imported/<name>/   written only by system_import (Phase 3), never replaced
+<workspace>/imported/<name>/   written only by system_import, never replaced
   <name>.json                a system file (not a run-store document; schema below); its stem names the system in run_list
   <component>.fmu            private copies of the FMUs the SSP held, one per component
 <workspace>/imported/.<name>.tmp-<pid>-<thread>/   system_import's staging directory: renamed to <name>/ when complete, removed on any failure
@@ -100,7 +100,7 @@ The main fields of each document:
   - `live` (default `false`) and, for a live run only, `idle_limit_s`. A live `RunSpec` has `fmi_type` `CoSimulation` (validated).
 - **`RunStatus`:**
   - `state`, plus `t`, `t_start`, `t_stop` and `progress`.
-  - `updated_at`, `started_at`, `finished_at` and `heartbeat_at`, plus `heartbeat_mono` (the worker's `time.monotonic()` at that heartbeat; Phase 4).
+  - `updated_at`, `started_at`, `finished_at` and `heartbeat_at`, plus `heartbeat_mono` (the worker's `time.monotonic()` at that heartbeat).
   - `pid` and `pid_start_time`.
   - `error` (`code`, `message`, `log_tail`).
   - Live runs: `speed` (the pacing factor) and `last_cmd` (the ID of the last command with an outcome; a display field).
@@ -120,7 +120,7 @@ The main fields of each document:
   - `duration_s`, `warnings` (diagnostics lines), `replaced_sha256` (overwrite only) and `summary` (variable counts, input, output and parameter names, default experiment).
 - **`BuildEvent`:** `at`, `run_id` (the build job), `type` `fmu_built`, `source` `worker`, `fmu_path`, `fmu_sha256` and `message`. A successful build appends exactly one, after both files are written; a failed, stopped or timed-out build appends none.
 - **`IndexEntry` of a build job:** `kind` `build`, `fmu_name` the build name, `fmu_path` the absolute output FMU path.
-- **`SystemSpec`** (Phase 3, [ADR 0009](adr/0009-systems-with-omsimulator.md)): everything the worker needs to build the OMSimulator model, and the pane to draw it, without reading any other file.
+- **`SystemSpec`** ([ADR 0009](adr/0009-systems-with-omsimulator.md)): everything the worker needs to build the OMSimulator model, and the pane to draw it, without reading any other file.
   - `name` (the system file's stem), `system` (the system file: absolute `path`, `sha256`, `size_bytes`) and `paramset` (the `.ssv`, same shape, or null).
   - `components`: name (`^[A-Za-z_][A-Za-z0-9_]{0,63}$`) to `{"fmu": FmuRef}`.
   - `connections`: `[{"from": "PI.u", "to": "MSD.F"}]`; a reference splits at the first dot.
@@ -142,7 +142,7 @@ uv run python -c "from pathlib import Path; from agentic_fmi.system import expor
 
 *Source: [docs/diagrams/run-states.mmd](diagrams/run-states.mmd) (edit, then run scripts/render-diagrams.sh)*
 
-`finished`, `failed` and `stopped` are terminal. `paused` (Phase 4, live runs only) is active, like `queued` and `running`: the worker writes `running` when it takes the run over, `paused` once the gate waits at the start time, and then switches between the two on `pause`, `resume` and `step`; a paused run ends as `stopped` (a `stop` command, `run_stop`, or the idle limit with `reason` set), `failed` (`worker_lost` like a running run) or, after `resume`, any way a running run ends. A run that ends `finished` at least one communication step before `t_stop` has `reason` "ended early at t=… of t_stop=…" (the FMU requested it; batch runs too). Less than a step short is not early: FMPy stops at the last grid point when the next one would pass `t_stop` and the FMU can't shorten its step. Build jobs use the same states; `stopped` means cancelled, with nothing written to `generated/`. System runs use them exactly as runs do.
+`finished`, `failed` and `stopped` are terminal. `paused` (live runs only) is active, like `queued` and `running`: the worker writes `running` when it takes the run over, `paused` once the gate waits at the start time, and then switches between the two on `pause`, `resume` and `step`; a paused run ends as `stopped` (a `stop` command, `run_stop`, or the idle limit with `reason` set), `failed` (`worker_lost` like a running run) or, after `resume`, any way a running run ends. A run that ends `finished` at least one communication step before `t_stop` has `reason` "ended early at t=… of t_stop=…" (the FMU requested it; batch runs too). Less than a step short is not early: FMPy stops at the last grid point when the next one would pass `t_stop` and the FMU can't shorten its step. Build jobs use the same states; `stopped` means cancelled, with nothing written to `generated/`. System runs use them exactly as runs do.
 
 | `error.code` | Meaning | Written by |
 |---|---|---|
@@ -223,9 +223,9 @@ Live runs only ([ADR 0010](adr/0010-live-runs-and-the-pane.md); code: `store/inb
 | Heartbeat | Every 0.5 s while running. The run is stale after 5 s (`config.Timing`) |
 | Event line | 4 KiB |
 | `error.log_tail` | 2 KB |
-| `live.json` (Phase 4) | Under 100,000 bytes, written at most 5 Hz, only on change (`Limits.live_*`) |
-| Command file (Phase 4) | 4096 bytes; an unparsable one is retried for 2 s (`Timing.inbox_grace_s`) |
-| Live run (Phase 4) | Paused for 30 min stops it (`Timing.live_idle_limit_s`, recorded as `idle_limit_s`); speed up to 1000 (`Timing.live_max_speed`) |
+| `live.json` | Under 100,000 bytes, written at most 5 Hz, only on change (`Limits.live_*`) |
+| Command file | 4096 bytes; an unparsable one is retried for 2 s (`Timing.inbox_grace_s`) |
+| Live run | Paused for 30 min stops it (`Timing.live_idle_limit_s`, recorded as `idle_limit_s`); speed up to 1000 (`Timing.live_max_speed`) |
 | Build source | 256 KiB (`Limits.build_source_max_bytes`) |
 | Build diagnostics | 2000 characters, 10 lines (`Limits.build_diagnostics_max_*`) |
 | Build job | 30 min (`Timing.build_timeout_s`) |

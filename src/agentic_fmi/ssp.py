@@ -62,7 +62,7 @@ every scalar input, output and parameter connector plus every variable a value s
 sha256 in an ``org.agentic-fmi`` annotation. Enumerations travel as ``Integer`` (as OMSimulator
 reads them) and no units are written. The archive is written next to ``dest``, the FMUs are
 re-hashed (an FMU changed meanwhile is refused), and it is moved into place with ``os.link``
-(never replacing a file that appeared meanwhile). The Phase 3 probe confirmed this shape
+(never replacing a file that appeared meanwhile). Spike (h) confirmed this shape
 validates against OMSimulator's bundled SSD and SSV XSDs and that OMSimulator 3 re-imports it
 with the same result (``ParameterBindings`` must precede ``Elements``).
 

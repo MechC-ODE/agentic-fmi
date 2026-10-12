@@ -1,4 +1,4 @@
-"""The Phase 3 exit demo as a test: the closed loop of the two ``fmu-authoring`` examples (PI
+"""The closed-loop demo as a test: the closed loop of the two ``fmu-authoring`` examples (PI
 controller and mass-spring-damper) is built, wired by the ``system-builder`` example
 ``loop.json``, checked, run, tuned to an overshoot under 5 %, exported as an SSP and imported
 again, with real workers and the real OMSimulator.

@@ -17,7 +17,7 @@ Claude needs to operate FMUs: inspect, run, control, compose and generate them. 
 The integration layer is a Python MCP server, `afmi mcp`, built on the MCP Python SDK v2:
 - It runs over stdio and is launched by the `mcpServers` entry in the core plugin's `.claude-plugin/plugin.json` (not a root `.mcp.json`, which Claude Code would also read as project config when the repo is opened).
 - Tool functions are thin adapters over core functions, with typed inputs and outputs from pydantic models.
-- Results are compact JSON plus optional PNG images. Errors meant for the model are raised as `ToolError` with actionable text. Phase 1 must confirm the `ToolError` import path in MCP SDK 2.x (mcp 2.3.0 is current).
+- Results are compact JSON plus optional PNG images. Errors meant for the model are raised as `ToolError` with actionable text. The `ToolError` import path in MCP SDK 2.x was confirmed against mcp 2.3.0 (below).
 - Long jobs use start and poll tools (`run_start` with `wait_s`, then `run_status`).
 
 ## Consequences
@@ -28,7 +28,7 @@ The integration layer is a Python MCP server, `afmi mcp`, built on the MCP Pytho
 - (-) Stdout belongs to the MCP protocol. Anything that might print, including FMU native code, must run elsewhere ([ADR 0002](0002-isolated-worker-process-per-run.md)).
 - (-) The server can't push to the model, so live updates reach the user through the pane ([ADR 0005](0005-pane-as-separate-early-access-plugin.md)).
 
-## Phase 1 verification (mcp 2.3.0)
+## Verification (mcp 2.3.0)
 
 The open item above was checked with an in-memory `Client` and a real stdio subprocess. The decision is unchanged.
 - **Imports:**

@@ -16,7 +16,7 @@ module's promises.
 
 Runs only inside a worker process (ADR 0002). Imports no engine library itself.
 
-Phase 4 (ADR 0010) amends the seam without changing ``simulate``'s signature: the gate becomes
+ADR 0010 amends the seam without changing ``simulate``'s signature: the gate becomes
 :data:`LiveGate`, ``gate(t, live)``, where ``live`` is the engine's :class:`Live` handle on the
 running simulation (``get`` and ``set`` between steps). Both engines implement :class:`Live`
 (``fmpy_engine._FmpyLive`` over ``recorder.fmu``, ``oms_engine._OmsLive`` over the OMSimulator

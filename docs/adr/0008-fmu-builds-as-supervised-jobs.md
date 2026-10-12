@@ -5,7 +5,7 @@
 
 ## Context
 
-Phase 2 lets Claude create FMUs. Authoring stays out of the tools: Claude writes the source with its own Write and Edit tools, so the user sees every file in the write prompt, and MCP tools only check, build and run. The facts that shape the build:
+Claude can create FMUs. Authoring stays out of the tools: Claude writes the source with its own Write and Edit tools, so the user sees every file in the write prompt, and MCP tools only check, build and run. The facts that shape the build:
 - **pythonfmu** (spike (e)) builds FMI 2.0 Co-Simulation only, by importing the source as a module to read its `Fmi2Slave` class. The FMU bundles pythonfmu and runs in our Python-hosted engines without `LD_PRELOAD`.
 - **OpenModelica `omc`** (spike (f)) exits 0 on every failure, prints errors only through `getErrorString()` (with harmless `Error:` lines even on success when offline), writes seven side files into its working directory, offers FMI 2.0 only, integrates CS with forward Euler unless built with `--fmiFlags=s:cvode`, and needs a writable `HOME`. A toy model takes 6 to 20 s; large models take minutes.
 - Some clients (Claude Desktop) cancel a stdio tool call after about 60 s, so a long build can't run inside the call.

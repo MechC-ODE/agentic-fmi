@@ -1,6 +1,6 @@
 """Run-store protocol v1: the pydantic models for every JSON document in ``.agentic-fmi/``.
 
-These models are the contract between the MCP server, the workers and (from Phase 4) the pane
+These models are the contract between the MCP server, the workers and the pane
 ([ADR 0003](../../../docs/adr/0003-file-based-run-store-protocol.md),
 [docs/protocol.md](../../../docs/protocol.md)). The committed JSON Schemas in ``docs/schemas/``
 are generated from them by :func:`export_schemas`, and a drift test keeps the two in sync.
@@ -16,7 +16,7 @@ Rules encoded here:
   :class:`SystemSpec` (``kind: "system"``, ADR 0009); readers dispatch on ``kind``. An
   ``events.jsonl`` line is an :class:`Event`, or a :class:`BuildEvent` when ``type`` is
   ``fmu_built``. ``build.json`` is a :class:`BuildRecord`.
-- Live runs (ADR 0010, Phase 4, all additive): ``RunSpec.live`` / ``SystemSpec.live`` with
+- Live runs (ADR 0010, all additive): ``RunSpec.live`` / ``SystemSpec.live`` with
   ``idle_limit_s``, the ``paused`` state, ``RunStatus.heartbeat_mono``, ``speed`` and
   ``reason``, the ``command`` event type, the pane's ``chart`` action (``Command.names``: the
   chart selection) and three documents: a :class:`Command` in
@@ -645,7 +645,7 @@ class Index(_Model):
 
 class EventType(StrEnum):
     """Lifecycle events of runs and build jobs. New types are additive; ``fmu_built`` lines are
-    :class:`BuildEvent`, not :class:`Event`. ``command`` (Phase 4): the worker of a live run
+    :class:`BuildEvent`, not :class:`Event`. ``command``: the worker of a live run
     appends one per command outcome; its message names the command ID, the action, applied or
     rejected, and the simulation time."""
 

@@ -24,6 +24,6 @@ The pane is a separate plugin, `agentic-fmi-pane`, in `pane/`, listed in the sam
 
 - (+) Mod API churn is contained in `pane/`. The core stays portable and stable.
 - (+) It's testable in isolation with `claude plugin test pane` and fixture run stores, on the `terminal` and `desktop` surfaces.
-- (-) A small TypeScript protocol reader (`pane/hooks/protocol.ts`) duplicates the pydantic models. It must track the protocol version, and the Phase 1 generated schemas help here.
+- (-) A small TypeScript protocol reader (`pane/hooks/protocol.ts`) duplicates the pydantic models. It must track the protocol version, and the generated JSON Schemas help here.
 - (-) Users install two plugins to get the live experience.
 - (-) Editing the pane over a Windows bind mount may not hot-reload, so run `/reload-plugins`.

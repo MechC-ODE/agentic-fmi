@@ -6,7 +6,7 @@ sequenceDiagram
     participant R as Run store
     participant P as Pane
 
-    Note over C,P: Phase 4 (ADR 0010). A live run is an ordinary run with live: true.
+    Note over C,P: A live run is an ordinary run with live: true (ADR 0010).
     C->>S: run_start(fmu or system, live=true)
     S->>R: spec.json (live, idle_limit_s), status queued
     S-)W: spawn worker

@@ -31,12 +31,12 @@ A test whose optional package is missing **skips with a reason**; it doesn't fai
 
 ## Fixtures
 
-### Implemented (Phase 0)
+### The Reference FMUs
 
 - `reference_fmus` (session scope, `tests/conftest.py`): returns `<repo>/.cache/reference-fmus/0.0.41` as a `Path`. The repo root comes from the location of `conftest.py`. The fixture requires the `.complete` marker that `scripts/fetch-reference-fmus.py` writes after a verified extraction. If the marker is missing, each dependent test **skips** with the message `Reference FMUs not cached; run: uv run python scripts/fetch-reference-fmus.py`. Tests never download.
-- Read-only exception: `reference_fmus` hands out the real cache. The Phase 0 tests use it only to read `modelDescription.xml` through FMPy and to check each archive's CRC. Nothing loads an FMU binary and nothing writes to the cache.
+- Read-only exception: `reference_fmus` hands out the real cache. The smoke tests use it only to read `modelDescription.xml` through FMPy and to check each archive's CRC. Nothing loads an FMU binary and nothing writes to the cache.
 
-### Implemented (Phase 1)
+### Workspaces, FMUs and runs
 
 - `workspace` (`tests/conftest.py`): an empty directory `<tmp_path>/workspace`, already resolved (no symlinks in its path). `load_config(workspace)` turns it into a `Config` whose only allowed root it is. It doesn't create a run store; the store creates `.agentic-fmi/` on first use.
 - `fmu` (`tests/conftest.py`): a factory `fmu(fmi_version, name)`, for example `fmu("3.0", "BouncingBall")`. It copies the cached Reference FMU to `<workspace>/<fmi_version>/<name>.fmu`, returns that path, and reuses the copy on a second call. Tests may mutate the copy; the cache is only read. An unknown name fails the test with the missing path. It needs `reference_fmus`, so it skips when the cache is missing.
@@ -53,7 +53,7 @@ The worker tests run real processes. Only `test_timeout_kills_a_hung_native_step
 
 The MCP tests run real workers: about 35 s for `tests/mcp` (the Roberts timeout is `slow`).
 
-### Implemented (Phase 2: FMU builds)
+### FMU builds
 
 - `tests/builds/` runs real workers and real build tools. The directory is `builds`, not `build`: pytest skips directories named `build` by default, so a bare `pytest` would not collect it. `conftest.py` gives `config` (fast poll), `supervisor` and `write_source`; at teardown `build_support.kill_leftovers` kills every worker the supervisor spawned and any process still naming the workspace. `processes_in(dir)` finds the processes working under a directory (omc, cmake, make, clang), which is how the stop test proves nothing is left.
 - The **`omc` marker** is on the tests that start the real `omc` (`test_build_omc.py`, and the Modelica tests of `test_build_examples.py`); they skip with the reason "omc (OpenModelica) is not installed" when `shutil.which("omc")` is empty. They run in the dev image, which installs omc 1.27.1 and Modelica Standard Library 4.1.0. Tests that need no omc (the parser on captured logs, the `.mos` script, the install hint, the class-name pre-check) are not marked, so they run everywhere. A build takes 6 to 10 s warm; the whole `omc` set takes about 45 s.
@@ -61,7 +61,7 @@ The MCP tests run real workers: about 35 s for `tests/mcp` (the Roberts timeout 
 - `test_build_examples.py` copies `skills/fmu-authoring/examples/` into a temporary workspace (the originals are never modified) and builds each once per module.
 - `test_build_jobs.py` also pins two races and a cleanup: two threads starting the same build name at once (a `Barrier` holds both after `check_request`, so the old check outside the `admission` lock would let both start; exactly one now does), and a commit whose write fails (`execute_build` runs in the test process with `_copy_hashed` or `write_build_record` broken: a directory the commit created is removed again so the name stays free, while an overwrite leaves the earlier build as it was). `tests/mcp/test_mcp_build.py` runs `fmu_build` through the in-memory client: a success, a failure (`Error executing tool fmu_build: Build failed (pythonfmu)`) and a `name` that breaks the schema pattern.
 
-### Implemented (Phase 3: systems and SSP)
+### Systems and SSP
 
 - `tests/worker/test_engine_contract.py` runs every engine-contract test once per engine through a real worker, on the same Reference FMU: as an FMU run (FMPy) and as a one-component system `M` (OMSimulator). `tests/worker/test_worker_system.py` (`oms`) runs system runs through real workers against the exact Jacobi recurrence of the pythonfmu PI controller and plant (`tests/worker/system_support.py`), and checks the pin (`oms_changed`, also against the current pin), the FMU re-hash, the cleanup, OMSimulator's refusals and what it does with an FMU's terminate request (Stair 2.0 stalls the clock, Stair 3.0 is ignored until the FMU fails).
 
@@ -76,9 +76,9 @@ System files and system runs. `tests/system_fmus.py` writes synthetic FMUs (a zi
 | `test_system_params.py` | The parameter layers and their recorded precedence, type conversion, what may be set |
 | `test_system_run.py` | The fully resolved `spec.json`, the refusals (the step-count and the result-size guards, each overridden by `force`), admission, the views |
 | `test_system_compare.py` | `run_compare` and `run_plot` on system runs, and that every `SystemSpec` field is either compared or listed as ignored |
-| `test_exit_demo.py` | The Phase 3 exit demo, below |
+| `test_exit_demo.py` | The closed-loop demo, below |
 
-`test_exit_demo.py` is the exit demo as a test (markers `omc`, `oms` and `slow`, about 15 s; it skips without `omc`). In a temporary workspace with real workers it builds the two `fmu-authoring` examples, checks and runs the shipped `skills/system-builder/examples/loop.json`, pins the overshoot (10.42 % at h = 0.01 within 0.1, 7.88 % at h = 0.001 within 0.02), checks that a pure-numpy sampled-data model of the loop agrees with the real runs, tunes to under 5 %, compares and plots the runs, and exports and re-imports the system for bit-identical results. The skill examples are copied, never modified.
+`test_exit_demo.py` is the closed-loop demo as a test (markers `omc`, `oms` and `slow`, about 15 s; it skips without `omc`). In a temporary workspace with real workers it builds the two `fmu-authoring` examples, checks and runs the shipped `skills/system-builder/examples/loop.json`, pins the overshoot (10.42 % at h = 0.01 within 0.1, 7.88 % at h = 0.001 within 0.02), checks that a pure-numpy sampled-data model of the loop agrees with the real runs, tunes to under 5 %, compares and plots the runs, and exports and re-imports the system for bit-identical results. The skill examples are copied, never modified.
 
 #### `tests/ssp/`
 
@@ -94,7 +94,7 @@ SSP and SSV import and export (`ssp.py`). Most tests run on synthetic FMUs and r
 
 The **`oms` marker** is on the tests that run OMSimulator. Those tests do it in a worker or in a child process (`oms_child.py`, run by `ssp_support.run_oms_child` with `-I -B`, `TMPDIR` and the working directory in a scratch directory), never in the test process: importing OMSimulator loads its native library at once. The other SSP and system tests need no OMSimulator and run without the marker.
 
-### Implemented (Phase 4: live runs and the pane)
+### Live runs and the pane
 
 - **`tests/live/`** (91 tests) holds the live run machinery (ADR 0010). It uses the worker fixtures of `tests/worker/conftest.py` (loaded by path) and its own `conftest.py` (`new_live_run` for an FMU, `new_live_system_run` for a system, `discarder`) and `live_support.py` (command writers in the server's and the pane's way, outcome and event readers, the Discarder's C source).
 
@@ -116,7 +116,7 @@ The **`oms` marker** is on the tests that run OMSimulator. Those tests do it in 
 
 The live and server-side tests take about 90 s together (192 tests; real workers and paced runs on short horizons); run them one suite at a time like the other worker tests.
 
-### Implemented (response styles: ninja mode)
+### Response styles
 
 - **`tests/test_style.py`** (31 tests) checks `style.py` on hand-built `RunView`s: the line for every state, a system run's name, the build lines, numbers with at most four significant digits, and `ninja_view` (no summary, build facts or log tail; error code, message and requested `values` kept; the input view unchanged).
 - **`tests/store/test_preferences.py`** (9 tests) covers `preferences.json`: the default, an atomic round trip, and a missing, torn, wrong-type, wrong-protocol or empty file reading as talkative.
@@ -136,7 +136,7 @@ The live and server-side tests take about 90 s together (192 tests; real workers
 
 Expected result in the container: `8 passed`.
 
-Skip paths, checked by hand in Phase 0 without moving the cache:
+Skip paths, checked by hand without moving the cache:
 
 - Missing cache: copy `tests/` and `pyproject.toml` to a scratch directory that has no `.cache/` and run `python -m pytest -q -rs` there. Expect `5 passed, 3 skipped` with the `reference_fmus` skip message.
 - Missing OMSimulator: put a module named `OMSimulator.py` that raises `ModuleNotFoundError` first on `PYTHONPATH`, then run `uv run pytest -q -m oms -rs`. Expect the oms test to skip with `OMSimulator not installed; run: uv sync --locked`.
@@ -160,7 +160,7 @@ Inside the container (or prefix with `MSYS_NO_PATHCONV=1 docker exec -w /workspa
 ```bash
 uv run pytest -q                            # full suite (OMSimulator and omc are installed in the container)
 uv run pytest -q -m "not omc"               # the default suite
-uv run pytest -q tests/test_smoke.py        # Phase 0 smoke tests
+uv run pytest -q tests/test_smoke.py        # smoke tests
 uv run pytest -q -m "not omc and not slow"  # quick loop
 uv run pytest -x --pdb -k status            # debug one test
 uv run ruff check . && uv run ruff format --check .

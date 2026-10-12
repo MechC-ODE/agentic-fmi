@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR 0002 and ADR 0003 fixed isolated workers and a file-based store, but left four things open for Phase 1:
+ADR 0002 and ADR 0003 fixed isolated workers and a file-based store, but left four things open:
 - **Location.** The default `<workspace>/.agentic-fmi/` lands on the Windows bind mount when the workspace is the repo, where each poll costs about 8 ms (spike (b)).
 - **IDs.** Two MCP servers can share one store (two Claude Code sessions in one project), and sync tools run on threads, so run IDs need a race-free allocator.
 - **Supervision.** Pids get reused, a zombie passes `os.kill(pid, 0)`, and a SIGSTOPped or hung worker is alive but useless. Only a process kill stops a hung native step (spike (a)).

@@ -1,4 +1,4 @@
-"""Spike (h): the OMSimulator facts the Phase 3 engine relies on (the Phase 3 design probe).
+"""Spike (h): the OMSimulator facts the system engine relies on (its design probe).
 
 Throwaway evidence for docs/spikes.md, not product code. It builds the shipped PI example and
 an exact zero-order-hold plant with pythonfmu into ``.cache/spikes/h/fmus`` and runs, each in a

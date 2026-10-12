@@ -6,7 +6,7 @@
 // system's components and connections), FMUs (newly built FMUs and their cards) and Runs (every
 // run, one press to open). A status line and toasts follow the store while the pane is closed too.
 //
-// Rules (binding, from the Phase 4 design):
+// Rules (binding, from ADR 0010):
 // - Read only the run store (index.json, runs/<id>/{spec,status,live,build}.json and
 //   runs/<id>/outcomes/<id>.json); never XML, SSP, result.csv or events.jsonl. Toasts come from
 //   state transitions seen in index.json and status.json, and from the outcomes of the commands

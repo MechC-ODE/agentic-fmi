@@ -5,7 +5,7 @@
 
 ## Context
 
-Development happens on a Windows 11 host, but FMUs are run Linux-first, the MCP server and workers are Python, and the pane needs a Claude Code with mod support running in the same environment. OpenModelica (needed by Phase 2) is officially packaged through apt for Ubuntu LTS. Agents must run the same commands the same way. The options were:
+Development happens on a Windows 11 host, but FMUs are run Linux-first, the MCP server and workers are Python, and the pane needs a Claude Code with mod support running in the same environment. OpenModelica (needed to build FMUs from Modelica) is officially packaged through apt for Ubuntu LTS. Agents must run the same commands the same way. The options were:
 
 - **A WSL distro.** It's mutable and hand-configured, so hard to reproduce or reset.
 - **Reusing an existing, unrelated container image.** It carries unrelated tooling, and its changes would couple the two projects.
@@ -18,7 +18,7 @@ The project gets a dedicated image, `.devcontainer/Dockerfile`, based on `ubuntu
 - Claude Code, installed with npm.
 - uv 0.11.14, copied from `ghcr.io/astral-sh/uv`, with uv-managed Python 3.12.
 - Build tools, and a non-root user `dev` (uid 1000).
-- OpenModelica (`omc` and the Modelica Standard Library cache `omlibrary`, pinned by `ARG OPENMODELICA_VERSION`) is installed from the official apt repo behind the build argument `WITH_OPENMODELICA` (default `1`). It was added ahead of Phase 2, to run the `omc` spike, and Phase 2's `fmu_build` uses it for Modelica sources.
+- OpenModelica (`omc` and the Modelica Standard Library cache `omlibrary`, pinned by `ARG OPENMODELICA_VERSION`) is installed from the official apt repo behind the build argument `WITH_OPENMODELICA` (default `1`). `fmu_build` uses it for Modelica sources.
 
 `compose.yaml` runs service `dev` as container `agentic-fmi-dev` (`init: true`, `sleep infinity`):
 - The repo is bind-mounted at `/workspace`.

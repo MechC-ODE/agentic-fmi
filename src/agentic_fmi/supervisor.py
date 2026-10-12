@@ -12,7 +12,7 @@ Rules (ADR 0002, ADR 0007):
   exiting); a process we didn't spawn is gone once ``/proc/<pid>`` is gone or a zombie (only
   its parent or init can reap it). Only a live process with the recorded start time is ever
   signalled, and never this process or its group.
-- Takeover: ``running`` (or ``paused``, Phase 4: a paused worker keeps beating) with a dead pid
+- Takeover: ``running`` (or ``paused``: a paused worker keeps beating) with a dead pid
   or a heartbeat older than ``Timing.heartbeat_stale_s`` gives ``failed{worker_lost}`` plus the
   log tail. :func:`heartbeat_age` measures the age with ``time.monotonic() -
   status.heartbeat_mono`` when the field is present (CLOCK_MONOTONIC is shared by the processes
@@ -200,7 +200,7 @@ def heartbeat_age(status: RunStatus) -> float:
     """Seconds since the worker's last heartbeat: ``time.monotonic() - heartbeat_mono`` when the
     worker wrote it (one machine's CLOCK_MONOTONIC: a wall-clock jump or a host that slept
     can't make a healthy worker look stale), else the wall-clock age of ``heartbeat_at`` (or
-    ``updated_at``) for status files written before Phase 4."""
+    ``updated_at``) for older status files without it."""
     if status.heartbeat_mono is not None:
         return time.monotonic() - status.heartbeat_mono
     return _seconds_since(status.heartbeat_at or status.updated_at)

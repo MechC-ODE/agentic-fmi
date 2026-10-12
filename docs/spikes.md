@@ -1,6 +1,6 @@
-# Phase 0 spikes
+# Feasibility spikes
 
-The Phase 0 feasibility spikes check the libraries the design depends on before any product code uses them. Each spike is a throwaway script in [`spikes/`](../spikes/README.md). It prints a JSON report and writes that report, with every generated FMU, SSP and result file, to the gitignored `.cache/spikes/<letter>/`. This page records the verdicts, the evidence and what each one means for the design. The spikes ran in the order c, b, a, d, e. Spike (f) ran later, in Phase 2 (task 2.5a), and has no script in `spikes/`: it drives `omc` directly from a scratch directory in the `/lab` volume, and section (f) lists the model and the commands. Spikes (g) and (h) prepared and accompanied Phase 3, and spike (i) prepared Phase 4. Each section below is self-contained.
+The feasibility spikes check the libraries the design depends on before any product code uses them. Each spike is a throwaway script in [`spikes/`](../spikes/README.md). It prints a JSON report and writes that report, with every generated FMU, SSP and result file, to the gitignored `.cache/spikes/<letter>/`. This page records the verdicts, the evidence and what each one means for the design. The spikes ran in the order c, b, a, d, e. Spike (f) ran later, for Modelica builds, and has no script in `spikes/`: it drives `omc` directly from a scratch directory in the `/lab` volume, and section (f) lists the model and the commands. Spikes (g) and (h) prepared and accompanied the work on connected systems, and spike (i) prepared live runs. Each section below is self-contained.
 
 FMI 1.0 is out of scope by project decision. The project supports FMI 2.0 and FMI 3.0 only, so no spike covers FMI 1.0.
 
@@ -353,7 +353,7 @@ The spikes contradict some statements elsewhere. Those files aren't owned by thi
 
 **Verdict: PASS, with caveats that `fmu_build` has to handle** (listed under "Design implication").
 
-**Setup.** Task 2.5a added OpenModelica to the dev image (`omc` and `omlibrary` from `build.openmodelica.org/apt noble stable`, `--no-install-recommends`; see [development.md](development.md)). The spike drives `omc` directly in scratch directories under `/lab/omc-spike/` (no script in `spikes/`, nothing generated in the repo), as user `dev` inside the container.
+**Setup.** OpenModelica was added to the dev image (`omc` and `omlibrary` from `build.openmodelica.org/apt noble stable`, `--no-install-recommends`; see [development.md](development.md)). The spike drives `omc` directly in scratch directories under `/lab/omc-spike/` (no script in `spikes/`, nothing generated in the repo), as user `dev` inside the container.
 
 | Item | Value |
 |---|---|
@@ -362,7 +362,7 @@ The spikes contradict some statements elsewhere. Those files aren't owned by thi
 | Image size | 1.74 GB before, 2.34 GB after (content size 520 MB → 692 MB); about 135 MB downloaded |
 | Host | 16 cores visible, Ubuntu 24.04, FMPy 0.3.32 in the project venv |
 
-**The model** (`MSD.mo`, a mass-spring-damper with a force input; the port names are the ones Phase 3 will wire: plant input `F`, plant outputs `x` and `v`; the Python controller will take `y` and give `u`):
+**The model** (`MSD.mo`, a mass-spring-damper with a force input; the port names are the ones the closed loop wires: plant input `F`, plant outputs `x` and `v`; the Python controller will take `y` and give `u`):
 
 ```modelica
 model MSD "Mass-spring-damper with a force input"
@@ -457,7 +457,7 @@ The format is `[<file>:<line1>:<col1>-<line2>:<col2>:<writable|readonly>] <Error
 
 ## (g) Closed loop in OMSimulator
 
-**Verdict: PASS, with caveats.** This spike prepares Phase 3. A pythonfmu PI controller and an omc mass-spring-damper plant close the loop inside OMSimulator, hosted in a Python process with no `LD_PRELOAD`. OMSimulator's result matches an independent FMPy co-simulation master to 5e-12 once that master uses OMSimulator's scheme and time grid. Stepping, mid-run `Kp` changes, the SSP round trip and SSV parameter files all work. Three caveats need handling in Phase 3 code: the `stepUntil` overshoot, the slow FMU extraction on the bind mount, and the SSV export bug.
+**Verdict: PASS, with caveats.** This spike prepared the work on connected systems. A pythonfmu PI controller and an omc mass-spring-damper plant close the loop inside OMSimulator, hosted in a Python process with no `LD_PRELOAD`. OMSimulator's result matches an independent FMPy co-simulation master to 5e-12 once that master uses OMSimulator's scheme and time grid. Stepping, mid-run `Kp` changes, the SSP round trip and SSV parameter files all work. Three caveats need handling in the system engine: the `stepUntil` overshoot, the slow FMU extraction on the bind mount, and the SSV export bug.
 
 | Item | Verdict |
 |---|---|
@@ -645,7 +645,7 @@ What the loader in `capi.py` implies:
 
 The spike re-checked (c) with one FMI 3.0 Feedthrough in a system. As is, the result file has 0 rows and stderr gets 2006 `error:` lines (`error:   [getReal] UnSupported Numeric Type:` and `error:   [updateSignals] failed to fetch variable Binary_input`). With `inst.removeSignalsFromResults(".*Binary.*")` before `initialize()`, it has 1001 rows and no errors. This is the same as in (c).
 
-### Design implications for Phase 3
+### Design implications for connected systems
 
 1. **Workers can host pythonfmu FMUs in OMSimulator as they are.** They need no `LD_PRELOAD` and no GIL handling, and stepping on a separate thread is fine. But the FMU's Python code runs inside the worker's interpreter and changes it: it adds its `resources/` to `sys.path`, and it imports its bundled `pythonfmu` and its slave module into `sys.modules`. Two pythonfmu FMUs with the same module names, or with different bundled `pythonfmu` versions, would share whichever was imported first. That wasn't tested, and one system per process limits the damage.
 2. **Put OMSimulator's temp directories on a container-local path**, as (b) found for the inbox. `instantiate()` drops from 2.6 s to 0.13 s and `delete()` from 0.45 s to 0.016 s. Set `tempfile.tempdir` (or `TMPDIR`) and `SSP(temp_dir=…)` per run, and remove them afterwards: every OMSimulator child left a directory behind, as in (c).
@@ -659,7 +659,7 @@ The spike re-checked (c) with one FMI 3.0 Feedthrough in a system. As is, the re
 
 ## (h) OMSimulator engine facts
 
-**Verdict: PASS, with caveats.** This spike is the Phase 3 design probe, kept as [`spikes/h_oms_engine_probe.py`](../spikes/h_oms_engine_probe.py) and extended while the OMSimulator engine was built (`engines/oms_engine.py`, ADR 0009). It checks every OMSimulator 3.0.0.post198 behaviour the engine relies on. Three findings shape the engine beyond the design: the clock ignores the start time, a discarded step stalls silently, and a pythonfmu slave that raises aborts the process.
+**Verdict: PASS, with caveats.** This spike is the design probe for the OMSimulator engine, kept as [`spikes/h_oms_engine_probe.py`](../spikes/h_oms_engine_probe.py) and extended while the OMSimulator engine was built (`engines/oms_engine.py`, ADR 0009). It checks every OMSimulator 3.0.0.post198 behaviour the engine relies on. Three findings shape the engine beyond the design: the clock ignores the start time, a discarded step stalls silently, and a pythonfmu slave that raises aborts the process.
 
 **Command:** `uv run --no-sync python spikes/h_oms_engine_probe.py` (about 15 s). It builds the shipped `pi_controller.py`, an exact zero-order-hold plant (`x <- a·x + K·(1 − a)·F`, `a = exp(−h/τ)`) and two stepping slaves with pythonfmu into `.cache/spikes/h/fmus`, then runs each case in a fresh child process (`python -I -B … --child NAME CFG`, `LD_PRELOAD` removed, `TMPDIR` on the container-local `/tmp/afmi-h`). The parent never imports OMSimulator. The report is `.cache/spikes/h/report.json`, with each child's stdout and stderr next to it.
 
@@ -689,7 +689,7 @@ The engine and the worker apply this as follows (ADR 0009):
 
 ## (i) Live control and the pane API
 
-**Verdict: PASS, with design changes.** This spike is the Phase 4 probe. It settles how a worker steps, pauses, sets and stops a live run in each engine, and what the Claude Code 2.1.295 plugin API gives the pane. Live sets in FMPy Co-Simulation work from `step_finished`. In Model Exchange they don't, because FMPy keeps the solver to itself. OMSimulator applies a set at the next step, but it treats each kind of variable differently.
+**Verdict: PASS, with design changes.** This spike is the live-run probe. It settles how a worker steps, pauses, sets and stops a live run in each engine, and what the Claude Code 2.1.295 plugin API gives the pane. Live sets in FMPy Co-Simulation work from `step_finished`. In Model Exchange they don't, because FMPy keeps the solver to itself. OMSimulator applies a set at the next step, but it treats each kind of variable differently.
 
 **Commands.**
 - Engines: `uv run --no-sync python spikes/i_live_control.py`, about 60 s (13 s of builds, then 50 child processes). It builds these FMUs into `.cache/spikes/i/fmus`:
@@ -697,7 +697,7 @@ The engine and the worker apply this as follows (ADR 0009):
   - with omc: the shipped `MSD.mo` (`s:cvode`);
   - with gcc against FMPy's headers: **LiveProbe**, a C FMI 2.0 ME and CS FMU for `x' = −k·x + u`. Its `k`, `jump`, `t_term` and `t_discard` are tunable and, in ME, settable only in initialization or Event Mode, as in the Reference FMUs. In Event Mode a non-zero `jump` is added to `x` and reported as `valuesOfContinuousStatesChanged`. `t_term` is a time event that requests termination. In CS, a step that reaches `t_term` ends there with `fmi2Discard` and `fmi2Terminated`, and a step that would pass `t_discard` returns `fmi2Discard` without terminating.
 
-  Each probe runs in a fresh child (`python -I -B … --child NAME CFG`, `TMPDIR` on the container-local `/tmp/afmi-i`). The parent imports neither FMPy's FMU classes nor OMSimulator. Every child runs a step gate as the Phase 4 worker would. Commands are applied in the simulation thread after a step. A paused gate blocks in `queue.get(timeout=0.05)` while a controller thread (the inbox reader's role) holds 1 s, single-steps, sets and resumes. A heartbeat thread beats every 50 ms. The report is `.cache/spikes/i/report.json`, with each child's config, stdout and stderr in `.cache/spikes/i/runs/`.
+  Each probe runs in a fresh child (`python -I -B … --child NAME CFG`, `TMPDIR` on the container-local `/tmp/afmi-i`). The parent imports neither FMPy's FMU classes nor OMSimulator. Every child runs a step gate as the live worker would. Commands are applied in the simulation thread after a step. A paused gate blocks in `queue.get(timeout=0.05)` while a controller thread (the inbox reader's role) holds 1 s, single-steps, sets and resumes. A heartbeat thread beats every 50 ms. The report is `.cache/spikes/i/report.json`, with each child's config, stdout and stderr in `.cache/spikes/i/runs/`.
 - Pane: a throwaway probe mod in `.cache/spikes/i/probe-pane/`, checked with `claude plugin validate` and `claude plugin test` (5 tests). A second mod, `.cache/spikes/i/fsprobe-mod/`, and `fs_poller.py` measure `$.fs` and `$.clock` in a real headless session. The 2.1.295 typings are saved in `.cache/spikes/i/types-2.1.295/`.
 
 ### Engines

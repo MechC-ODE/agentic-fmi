@@ -26,8 +26,8 @@ HARD_CAP = 16_384
 ONE = {"kind": "constant", "value": 1}
 TOOLS_LIST_BUDGET = 32_000
 """The `tools/list` payload was 36.4 KB before the schemas were trimmed, 25.4 KB with fmu_build,
-and 29.5 KB with the three system tools; ADR 0009 raised the cap from 26 KB to 32 KB. Phase 4
-(ADR 0010) fits run_control by trimming descriptions: 31.1 KB with 17 tools. response_style
+and 29.5 KB with the three system tools; ADR 0009 raised the cap from 26 KB to 32 KB. Live
+runs (ADR 0010) fit run_control by trimming descriptions: 31.1 KB with 17 tools. response_style
 (ninja mode) makes it 31.8 KB with 18."""
 
 

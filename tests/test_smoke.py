@@ -1,4 +1,4 @@
-"""Phase 0 smoke tests: the package imports, the ``afmi`` CLI runs, the cached Reference FMUs
+"""Smoke tests: the package imports, the ``afmi`` CLI runs, the cached Reference FMUs
 parse, and the OMSimulator Python API resolves.
 
 Collaborators: ``agentic_fmi`` and ``agentic_fmi.cli.main`` (the code under test), the ``afmi``

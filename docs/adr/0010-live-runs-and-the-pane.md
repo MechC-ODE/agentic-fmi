@@ -1,11 +1,11 @@
 # 0010. Live runs and the pane: ordinary runs with a gate, a command inbox and live.json
 
-- Status: Accepted, implemented in Phase 4. Amends [0005](0005-pane-as-separate-early-access-plugin.md) (the pane reads no `events.jsonl`) and [0009](0009-systems-with-omsimulator.md) (the gate gets a `Live` handle).
+- Status: Accepted, implemented. Amends [0005](0005-pane-as-separate-early-access-plugin.md) (the pane reads no `events.jsonl`) and [0009](0009-systems-with-omsimulator.md) (the gate gets a `Live` handle).
 - Date: 2026-10-11
 
 ## Context
 
-Phase 4 lets Claude and the user watch and steer a simulation while it runs, for single FMUs and for systems, in a pane inside Claude Code. Spike (i) ([spikes.md](../spikes.md#i-live-control-and-the-pane-api)) settled the facts:
+Claude and the user can watch and steer a simulation while it runs, for single FMUs and for systems, in a pane inside Claude Code. Spike (i) ([spikes.md](../spikes.md#i-live-control-and-the-pane-api)) settled the facts:
 - FMPy Co-Simulation: a gate in `step_finished` reaches the FMU through `recorder.fmu` and is bit-identical to an own `doStep` loop. It first fires after step 1; wrapping `exitInitializationMode` of an instance passed as `simulate_fmu(fmu_instance=...)` gates the start time. An input that FMPy's input table drives is overwritten before every step. A discard without terminate makes FMPy retry the same step forever; a terminate returns early without an error.
 - FMPy Model Exchange: a live set is wrong unless we own the CVode loop (solver reset, event iteration).
 - OMSimulator: `setValue` after `initialize()` works on tunable parameters and unconnected inputs; a connected input holds for one step; outputs and fixed parameters are refused with a warning. FMI 2.0 discard and terminate both stall the clock; FMI 3.0 ignores terminate.
@@ -44,7 +44,7 @@ Decisions: live runs are ordinary runs (`run_start(live=true)` starts paused at 
 
 ## Chart selection
 
-Added after Phase 4, additively (protocol stays 1): the pane's user picks which signals to chart, at most 3, by clicking a signal in the values table (grouped by component; the chart's colour is on the signal's dot) and removes a chart with a second click or the ✕ on the chart.
+Added later, additively (protocol stays 1): the pane's user picks which signals to chart, at most 3, by clicking a signal in the values table (grouped by component; the chart's colour is on the signal's dot) and removes a chart with a second click or the ✕ on the chart.
 
 - **Decision.** The worker is the source of truth. `LiveBuffer` keeps the last `Limits.live_points` points of every column in memory, fed by one `live.get` of all columns per communication point, and publishes in `live.json` the history of the current selection only (`series`). A new inbox action `chart` with `Command.names` (the whole new selection, in order) replaces it; the pane's selection is simply the keys of `live.series`, so a rejected command changes nothing on screen. `Limits.live_variables` is 3: the default selection (the first outputs) and the most a `chart` may name.
 - **Rules.** A good `chart` takes effect at once in any state and never pauses, resumes, steps, stops or changes the speed; a bad one (unknown name, with close matches, a repeated name, more than 3) is rejected and the run goes on. `run_control` does not offer `chart` (it is a pane action, and `tools/list` stays as it was).

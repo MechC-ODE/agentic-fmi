@@ -1,4 +1,4 @@
-"""The Phase 1 exit demo, in process: inspect BouncingBall, run it twice, compare, plot, read.
+"""The basic demo, in process: inspect BouncingBall, run it twice, compare, plot, read.
 
 Collaborators: the ``session`` fixture (``tests/mcp/conftest.py``: the real server and real worker
 processes behind an in-memory MCP client) and the ``fmu`` fixture (a private BouncingBall copy).

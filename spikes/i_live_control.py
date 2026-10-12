@@ -1,9 +1,9 @@
-"""Spike (i): live step control in FMPy and OMSimulator (the Phase 4 engine probe).
+"""Spike (i): live step control in FMPy and OMSimulator (the live-run engine probe).
 
 Throwaway evidence for docs/spikes.md, section (i); not product code. The parent builds the
 probe FMUs into ``.cache/spikes/i/fmus`` and runs every probe in a fresh child Python process
 (``--child NAME CFG``), the way a worker would; the parent never imports FMPy's FMU classes or
-OMSimulator. Each child runs a step gate like the Phase 4 worker's: commands are applied in the
+OMSimulator. Each child runs a step gate like the live worker's: commands are applied in the
 simulation thread after a step, a paused gate blocks there while another thread (the inbox
 reader's role) feeds it ``step``, ``set`` and ``resume``, and a heartbeat thread keeps beating.
 
@@ -432,7 +432,7 @@ class Heartbeat(threading.Thread):
 
 
 class Gate:
-    """The Phase 4 step gate, driven by a script (commands keyed by simulation time) and by a
+    """The live step gate, driven by a script (commands keyed by simulation time) and by a
     control queue another thread fills while the run is paused (the inbox reader's role).
 
     Called in the simulation thread after every step with the time reached: applies commands

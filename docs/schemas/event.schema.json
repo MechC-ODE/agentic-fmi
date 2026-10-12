@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "EventType": {
-      "description": "Lifecycle events of runs and build jobs. New types are additive; ``fmu_built`` lines are\n:class:`BuildEvent`, not :class:`Event`. ``command`` (Phase 4): the worker of a live run\nappends one per command outcome; its message names the command ID, the action, applied or\nrejected, and the simulation time.",
+      "description": "Lifecycle events of runs and build jobs. New types are additive; ``fmu_built`` lines are\n:class:`BuildEvent`, not :class:`Event`. ``command``: the worker of a live run\nappends one per command outcome; its message names the command ID, the action, applied or\nrejected, and the simulation time.",
       "enum": [
         "created",
         "started",

@@ -457,7 +457,7 @@ def _check_interface(
 def check_runnability(path: Path, md: ModelDescription, limits: Limits) -> Runnability:
     """Runnability of the FMU's default experiment on this platform, per interface.
 
-    Blockers: no binary for ``fmpy.platform`` (source-only FMUs are not compiled in Phase 1;
+    Blockers: no binary for ``fmpy.platform`` (source-only FMUs are not compiled;
     remoting is never used), ScheduledExecution only (Clocks: ``runnable: false``), and for
     Co-Simulation an estimate above ``limits.max_internal_steps`` (Roberts 3.0: the CS check
     fails with a pointer to Model Exchange, the ME check passes).

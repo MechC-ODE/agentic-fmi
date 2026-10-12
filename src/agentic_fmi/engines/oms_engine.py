@@ -6,7 +6,7 @@ system-specific code.
 
 One way to run a system: the model is built from the resolved spec through the OMSimulator 3
 API, never by loading a user's SSP. SSD and SSV are import and export formats the server
-handles (``ssp.py``). Facts this module relies on (spike (g), the Phase 3 probe and spike (h),
+handles (``ssp.py``). Facts this module relies on (spikes (g) and (h),
 OMSimulator 3.0.0.post198):
 
 - ``SSP(temp_dir=...)``, ``addResource(path, new_name="resources/<c>.fmu")``,
@@ -43,11 +43,11 @@ OMSimulator 3.0.0.post198):
   ``log.txt`` in a worker). An exception left unwound with a live model can crash the
   interpreter at exit (SIGSEGV), so ``terminate()`` and ``delete()`` always run.
 
-Phase 4 (ADR 0010; spike (i) items 7 to 9) runs live systems through the same loop:
+Live system runs (ADR 0010; spike (i) items 7 to 9) use the same loop:
 the gate is ``gate(t, live)`` with :class:`_OmsLive` over the instance, and a live spec also
 calls the gate once after ``initialize()`` and row 0, before the first ``doStep()``, so a live
 system run pauses at ``start_time`` as an FMU run does (a ``False`` there returns row 0 as a
-stopped result). A batch spec skips that call: its loop is the Phase 3 loop. While the gate
+stopped result). A batch spec skips that call: its loop is the plain batch loop. While the gate
 waits nothing steps (pausing is simply not calling ``doStep()``; OMSimulator has no internal
 timeout). ``setValue`` after ``initialize()`` works on tunable parameters and unconnected
 inputs (from the next ``doStep()``, persistent); a connected input is overwritten by the next

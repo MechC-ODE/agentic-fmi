@@ -1,5 +1,5 @@
 """The committed JSON Schemas in ``docs/schemas/`` match the protocol models and the system file
-model, the build documents added in Phase 2 (ADR 0008) round-trip, and the system run spec
+model, the build documents (ADR 0008) round-trip, and the system run spec
 (ADR 0009) keeps its ``{"from", "to"}`` connections through a write and read.
 
 Collaborators: ``agentic_fmi.store.protocol`` (``DOCUMENTS``, ``export_schemas``, the build and

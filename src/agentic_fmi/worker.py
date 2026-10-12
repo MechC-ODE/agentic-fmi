@@ -106,7 +106,7 @@ def main(run_dir: Path, timing: Timing | None = None) -> int:
        and ``progress`` if ``t`` moved, and at least every ``timing.heartbeat_interval_s`` it
        writes ``heartbeat_at`` (one lock serializes all status writes; nothing is written after
        a terminal state). It is also the watchdog: it accumulates non-paused wall time
-       (:class:`ActiveClock`; never paused before Phase 4) and, past ``spec.timeout_s``, writes
+       (:class:`ActiveClock`, which leaves out paused time) and, past ``spec.timeout_s``, writes
        ``failed{timeout, log_tail}``, removes the scratch directories (``fmu/``, ``work/``),
        appends a ``failed`` event and ends the process at once (:func:`_hard_exit`, whose group
        kill also ends a build tool). ctypes releases the GIL during FMU calls, so this works

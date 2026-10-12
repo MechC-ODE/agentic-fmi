@@ -4,7 +4,7 @@ One plain function with the engine signature of ``engines/base.py`` (``LiveGate`
 ``EngineResult`` out), shared with the OMSimulator engine (ADR 0009). Runs only inside a worker
 process (ADR 0002); ruff TID251 allows FMPy's loading APIs only here and in ``worker.py``.
 
-Phase 4 (ADR 0010) keeps ``simulate_fmu`` for every run, batch and live, Model Exchange and
+ADR 0010 keeps ``simulate_fmu`` for every run, batch and live, Model Exchange and
 Co-Simulation (spike (i): the gate through ``recorder.fmu`` is bit-identical to an own
 ``doStep`` loop):
 
