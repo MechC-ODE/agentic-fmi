@@ -1,0 +1,50 @@
+flowchart TB
+    cli["cli.py<br/>afmi mcp, afmi worker"]
+
+    subgraph srv["Server side: never imports engines/ or worker.py"]
+        direction TB
+        server["mcp/server.py<br/>18 thin tool adapters"]
+        runs["runs.py<br/>run, build and system<br/>use cases"]
+        control["control.py<br/>run_control,<br/>run_status values"]
+        ssp["ssp.py<br/>SSP import, SSD/SSV export"]
+        budget["budget.py<br/>output budgets"]
+        plots["plots.py<br/>PNG plots"]
+        stylepy["style.py<br/>ninja status lines"]
+        sup["supervisor.py<br/>spawn, reconcile,<br/>stop"]
+    end
+
+    subgraph wrk["Worker side: only code that loads FMUs"]
+        direction TB
+        worker["worker.py<br/>heartbeat, watchdog,<br/>build jobs"]
+        engines["engines/<br/>base (the seam), fmpy_engine,<br/>oms_engine"]
+    end
+
+    subgraph lib["Shared modules: no FMU native code"]
+        direction TB
+        live["live.py<br/>live gate, set checks,<br/>live.json buffer"]
+        system["system.py<br/>system files, checks,<br/>run plan"]
+        build["build.py<br/>pythonfmu and omc builds"]
+        fmu["fmu/<br/>catalog, inspect,<br/>validate"]
+        analysis["analysis/<br/>summary, downsample,<br/>compare"]
+        signals["signals.py<br/>inputs DSL"]
+        store["store/<br/>protocol, runstore,<br/>atomic, inbox"]
+    end
+
+    cli --> server
+    cli --> worker
+    server --> runs
+    server --> control
+    server --> ssp
+    server --> sup
+    server --> stylepy
+    control --> runs
+    runs --> ssp
+    runs --> budget
+    runs --> plots
+    runs --> sup
+    worker -->|"imported lazily"| engines
+    srv --> lib
+    wrk --> lib
+
+    classDef native fill:#fde9d9,stroke:#c4662a
+    class worker,engines native

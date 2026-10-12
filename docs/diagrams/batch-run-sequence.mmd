@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    participant C as Claude
+    participant S as MCP server
+    participant W as Worker
+    participant R as Run store
+
+    C->>S: run_start(fmu, experiment,<br/>start_values, wait_s)
+    S->>S: parse modelDescription.xml,<br/>validate names and values
+    S->>R: write runs/r12/spec.json (sha256, versions),<br/>status queued, index entry, event
+    S-)W: spawn detached<br/>worker for r12
+    W->>R: status running<br/>(pid, start time)
+    Note over W,R: Heartbeat thread updates<br/>status every 0.5 s
+    W->>W: simulate through the engine,<br/>step_finished gate
+    W->>R: result.csv, summary.json,<br/>status finished, event
+    Note over W,R: log.txt collects worker<br/>output throughout
+    alt finished within wait_s
+        S-->>C: summary
+    else still running
+        S-->>C: run id and progress
+    end
+
+    C->>S: run_status, run_plot,<br/>run_results(max_points)
+    S->>R: read summary.json and result.csv
+    S->>S: downsample, render PNG
+    S-->>C: compact JSON and PNG

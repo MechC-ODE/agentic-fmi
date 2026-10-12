@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "``runs/<id>/commands/<id>.json``: one request to the worker of a live run (ADR 0010).\n\nWritten once and never changed: by the server through an exclusive create (a temporary file\nlinked into place), or by the pane with ``$.fs.write`` (not atomic, so the worker retries a\nfile that doesn't parse until ``Timing.inbox_grace_s``, then rejects it). At most\n:data:`MAX_COMMAND_BYTES`. The worker applies each file at most once, in name order, and\nwrites exactly one :class:`CommandOutcome` for it. The arguments must match the action:\n``n`` only for ``step`` (required there), ``values`` only for ``set`` (required there),\n``speed`` only for ``resume`` (optional), ``names`` only for ``chart`` (required there; an\nempty list charts nothing; at most 16 names, each once).",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "id": {
+      "description": "The file name without .json.",
+      "pattern": "^\\d{13}-(server|pane)-[0-9a-f]{8}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "source": {
+      "description": "Equals the writer part of id.",
+      "enum": [
+        "server",
+        "pane"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "issued_at": {
+      "format": "date-time",
+      "title": "Issued At",
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "pause",
+        "resume",
+        "step",
+        "set",
+        "stop",
+        "chart"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "n": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "step: whole communication steps to advance.",
+      "title": "N"
+    },
+    "values": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "minProperties": 1,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "set: variable name (<component>.<variable> in a system) to value.",
+      "title": "Values"
+    },
+    "speed": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "resume: the new pacing factor (1 = real time).",
+      "title": "Speed"
+    },
+    "names": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "chart: the recorded outputs to chart, in order (empty: none).",
+      "title": "Names"
+    }
+  },
+  "required": [
+    "protocol",
+    "id",
+    "source",
+    "issued_at",
+    "action",
+    "n",
+    "values",
+    "speed",
+    "names"
+  ],
+  "title": "Command",
+  "type": "object"
+}

@@ -1,0 +1,25 @@
+name: agentic-fmi
+
+services:
+  dev:
+    build:
+      context: .devcontainer
+      args:
+        WITH_OPENMODELICA: "${WITH_OPENMODELICA:-1}"
+    image: agentic-fmi-dev:latest
+    container_name: agentic-fmi-dev
+    command: sleep infinity
+    init: true
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - claude-home:/home/dev/.claude
+      - venv:/home/dev/.venvs
+      - uv-cache:/home/dev/.cache/uv
+      - lab:/lab
+
+volumes:
+  claude-home:
+  venv:
+  uv-cache:
+  lab:

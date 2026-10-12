@@ -1,0 +1,28 @@
+{
+  "name": "agentic-fmi",
+  "owner": {
+    "name": "Ahmed Attia",
+    "email": "a.e.gamal@gmail.com"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for working with FMUs (Functional Mock-up Units)."
+  },
+  "plugins": [
+    {
+      "name": "agentic-fmi",
+      "source": "./",
+      "description": "Explore, validate, simulate, compare and plot FMUs (FMI 2.0 and 3.0) from Claude in natural language.",
+      "version": "0.1.0",
+      "category": "simulation",
+      "keywords": ["fmi", "fmu", "simulation", "modelica"]
+    },
+    {
+      "name": "agentic-fmi-pane",
+      "source": "./pane",
+      "description": "Early-access live pane (/fmi) for Agentic FMI: live charts, values and controls for live runs, built FMUs and system diagrams. Needs agentic-fmi.",
+      "version": "0.1.0",
+      "category": "simulation",
+      "keywords": ["fmi", "fmu", "simulation", "pane", "live"]
+    }
+  ]
+}

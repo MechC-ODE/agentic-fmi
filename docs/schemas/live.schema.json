@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "LiveColumn": {
+      "description": "One recorded scalar output at ``LiveSnapshot.t``: its unit and value (null when\nnon-finite).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "value"
+      ],
+      "title": "LiveColumn",
+      "type": "object"
+    }
+  },
+  "description": "``runs/<id>/live.json``: the live chart history and current values of a live run\n(ADR 0010).\n\nWritten only by the worker's heartbeat thread, atomically, at most 5 times a second and only\nwhen a new sample arrived; kept after the run ends, so a pane that reopens still draws it.\n``values`` holds every scalar recorded output (``spec.outputs`` order, at most\n``Limits.live_max_columns``) sampled at ``t``. ``time`` and ``series`` are the ring buffer:\nthe last ``Limits.live_points`` communication points of the current chart selection.\n``series`` holds exactly the selected names, in order: by default the first\n``Limits.live_variables`` names of ``values``, replaced by a ``chart`` command (the worker\nkeeps that history for every column, so a newly charted name has its full history at once).\nThe whole file stays under ``Limits.live_max_bytes`` (the writer drops the oldest history\npoints until it fits). Batch runs have no ``live.json``.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "run_id": {
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "seq": {
+      "description": "Increases with every write.",
+      "minimum": 1,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "t": {
+      "description": "Simulation time of values.",
+      "title": "T",
+      "type": "number"
+    },
+    "values": {
+      "items": {
+        "$ref": "#/$defs/LiveColumn"
+      },
+      "title": "Values",
+      "type": "array"
+    },
+    "time": {
+      "description": "History times, ascending.",
+      "items": {
+        "type": "number"
+      },
+      "title": "Time",
+      "type": "array"
+    },
+    "series": {
+      "additionalProperties": {
+        "items": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": "array"
+      },
+      "description": "History of each charted variable (the chart selection), one value per entry of time.",
+      "title": "Series",
+      "type": "object"
+    }
+  },
+  "required": [
+    "protocol",
+    "run_id",
+    "seq",
+    "t",
+    "values",
+    "time",
+    "series"
+  ],
+  "title": "LiveSnapshot",
+  "type": "object"
+}

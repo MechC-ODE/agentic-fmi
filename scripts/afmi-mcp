@@ -1,0 +1,37 @@
+#!/bin/sh
+# Launch the Agentic FMI MCP server (`afmi mcp`) for the Claude Code plugin; see mcpServers in
+# .claude-plugin/plugin.json.
+#
+# Usage: afmi-mcp WORKSPACE_DIR
+#
+# stdout is the MCP stream, so this script prints nothing to it: every message goes to stderr,
+# and the final `exec` hands stdin and stdout straight to the server.
+#
+# Environment:
+#   CLAUDE_PLUGIN_ROOT  the plugin directory, which holds pyproject.toml and uv.lock. Claude Code
+#                       sets it; the default is the directory above this script.
+#   UV_PROJECT_ENVIRONMENT  when already set (the dev container sets it), that venv is reused
+#                       as it is. When unset, a venv under CLAUDE_PLUGIN_DATA (kept across
+#                       plugin updates) is created on first start; that start downloads Python and
+#                       the dependencies, so it can take a minute.
+set -eu
+
+if [ "$#" -ne 1 ]; then
+    echo "usage: afmi-mcp WORKSPACE_DIR" >&2
+    exit 2
+fi
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "afmi-mcp: 'uv' is not on PATH. Install it (https://docs.astral.sh/uv/) and restart" \
+        "Claude Code." >&2
+    exit 127
+fi
+
+root=${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
+
+if [ -z "${UV_PROJECT_ENVIRONMENT:-}" ] && [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
+    UV_PROJECT_ENVIRONMENT=$CLAUDE_PLUGIN_DATA/venv
+    export UV_PROJECT_ENVIRONMENT
+fi
+
+exec uv run --quiet --locked --no-dev --project "$root" afmi mcp --workspace "$1"

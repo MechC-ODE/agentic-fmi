@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "ComponentSpec": {
+      "description": "One component of a system run: the FMU it instantiates, pinned by content hash. The\nworker simulates a private copy whose bytes it hashed (ADR 0009).",
+      "properties": {
+        "fmu": {
+          "$ref": "#/$defs/FmuRef"
+        }
+      },
+      "required": [
+        "fmu"
+      ],
+      "title": "ComponentSpec",
+      "type": "object"
+    },
+    "Experiment": {
+      "description": "The resolved experiment: caller overrides on top of the FMU's defaultExperiment, with\nFMPy's defaults made explicit so ``spec.json`` alone reproduces the run.",
+      "properties": {
+        "start_time": {
+          "title": "Start Time",
+          "type": "number"
+        },
+        "stop_time": {
+          "title": "Stop Time",
+          "type": "number"
+        },
+        "output_interval": {
+          "exclusiveMinimum": 0,
+          "title": "Output Interval",
+          "type": "number"
+        },
+        "relative_tolerance": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relative Tolerance"
+        },
+        "step_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model Exchange solver step; null means FMPy's default.",
+          "title": "Step Size"
+        }
+      },
+      "required": [
+        "start_time",
+        "stop_time",
+        "output_interval",
+        "relative_tolerance",
+        "step_size"
+      ],
+      "title": "Experiment",
+      "type": "object"
+    },
+    "FileRef": {
+      "description": "A workspace file a system run read (the system file, the parameter set), pinned by hash.",
+      "properties": {
+        "path": {
+          "description": "Absolute, symlink-resolved path at run creation.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "title": "FileRef",
+      "type": "object"
+    },
+    "FmuRef": {
+      "description": "The FMU a run used, pinned by content hash.",
+      "properties": {
+        "path": {
+          "description": "Absolute, symlink-resolved path at run creation.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "fmi_version": {
+          "enum": [
+            "2.0",
+            "3.0"
+          ],
+          "title": "Fmi Version",
+          "type": "string"
+        },
+        "model_name": {
+          "title": "Model Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "fmi_version",
+        "model_name"
+      ],
+      "title": "FmuRef",
+      "type": "object"
+    },
+    "MasterAlgorithm": {
+      "description": "How OMSimulator couples the components (spike (g)): its fixed-step ``oms_ma`` master\nsteps every component from the same communication point with the inputs of the previous\nexchange (Jacobi), then copies all outputs to the connected inputs. Results are sampled\nafter each exchange (post-exchange values).",
+      "properties": {
+        "method": {
+          "const": "oms_ma",
+          "default": "oms_ma",
+          "title": "Method",
+          "type": "string"
+        },
+        "coupling": {
+          "const": "jacobi",
+          "default": "jacobi",
+          "title": "Coupling",
+          "type": "string"
+        },
+        "step_size": {
+          "description": "Communication step h in seconds.",
+          "exclusiveMinimum": 0,
+          "title": "Step Size",
+          "type": "number"
+        }
+      },
+      "required": [
+        "method",
+        "coupling",
+        "step_size"
+      ],
+      "title": "MasterAlgorithm",
+      "type": "object"
+    },
+    "OmsVersion": {
+      "description": "The OMSimulator package a system run uses: distribution version and package-tree sha256\n(``oms_pin.package_digest``), checked by the server and again by the worker before import.",
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "sha256"
+      ],
+      "title": "OmsVersion",
+      "type": "object"
+    },
+    "ResolvedValue": {
+      "description": "A value the worker sets before initialization, and the layer that supplied it.",
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "source": {
+          "enum": [
+            "system",
+            "paramset",
+            "start_values"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "source"
+      ],
+      "title": "ResolvedValue",
+      "type": "object"
+    },
+    "SystemConnection": {
+      "description": "One connection, written ``{\"from\": \"PI.u\", \"to\": \"MSD.F\"}``: the value of output\n``from`` drives input ``to`` at every communication point.",
+      "properties": {
+        "from": {
+          "description": "<component>.<output variable>.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}\\..+$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "<component>.<input variable>.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}\\..+$",
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "SystemConnection",
+      "type": "object"
+    },
+    "Versions": {
+      "description": "Tool versions recorded with every run (principle 3).",
+      "properties": {
+        "agentic_fmi": {
+          "title": "Agentic Fmi",
+          "type": "string"
+        },
+        "fmpy": {
+          "title": "Fmpy",
+          "type": "string"
+        },
+        "numpy": {
+          "title": "Numpy",
+          "type": "string"
+        },
+        "python": {
+          "title": "Python",
+          "type": "string"
+        },
+        "platform": {
+          "description": "Machine and OS, for example x86_64-linux.",
+          "title": "Platform",
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentic_fmi",
+        "fmpy",
+        "numpy",
+        "python",
+        "platform"
+      ],
+      "title": "Versions",
+      "type": "object"
+    }
+  },
+  "description": "``runs/<id>/spec.json`` of a system run (``kind: \"system\"``, ADR 0009): the system fully\nresolved, so the worker builds the OMSimulator model from it alone and the pane can draw\nit. Written once by the server before the worker starts; immutable afterwards.\n\n``experiment.output_interval`` equals ``master.step_size``: one result row per\ncommunication point. ``experiment.relative_tolerance`` and ``step_size`` stay null.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "run_id": {
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "kind": {
+      "const": "system",
+      "default": "system",
+      "title": "Kind",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "name": {
+      "description": "The system's display name: the system file's stem.",
+      "title": "Name",
+      "type": "string"
+    },
+    "system": {
+      "$ref": "#/$defs/FileRef",
+      "description": "The system file as read at run creation."
+    },
+    "paramset": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FileRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The .ssv parameter set, if any."
+    },
+    "components": {
+      "minProperties": 1,
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]{0,63}$": {
+          "$ref": "#/$defs/ComponentSpec"
+        }
+      },
+      "title": "Components",
+      "type": "object"
+    },
+    "connections": {
+      "items": {
+        "$ref": "#/$defs/SystemConnection"
+      },
+      "title": "Connections",
+      "type": "array"
+    },
+    "parameters": {
+      "description": "Values set before initialization, keyed <component>.<variable>, with the layer that won (system < paramset < start_values).",
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]{0,63}\\..+$": {
+          "$ref": "#/$defs/ResolvedValue"
+        }
+      },
+      "title": "Parameters",
+      "type": "object"
+    },
+    "master": {
+      "$ref": "#/$defs/MasterAlgorithm"
+    },
+    "experiment": {
+      "$ref": "#/$defs/Experiment"
+    },
+    "outputs": {
+      "description": "Columns of result.csv after time.",
+      "items": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}\\..+$",
+        "type": "string"
+      },
+      "title": "Outputs",
+      "type": "array"
+    },
+    "timeout_s": {
+      "description": "Limit on wall time spent stepping; time the gate waits is excluded.",
+      "exclusiveMinimum": 0,
+      "title": "Timeout S",
+      "type": "number"
+    },
+    "estimated_steps": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Communication steps: (stop_time - start_time) / step_size.",
+      "title": "Estimated Steps"
+    },
+    "force": {
+      "default": false,
+      "description": "True if the step-count guard was overridden.",
+      "title": "Force",
+      "type": "boolean"
+    },
+    "versions": {
+      "$ref": "#/$defs/Versions"
+    },
+    "omsimulator": {
+      "$ref": "#/$defs/OmsVersion"
+    },
+    "live": {
+      "default": false,
+      "description": "A live run (ADR 0010): starts paused at start_time, is paced and takes inbox commands.",
+      "title": "Live",
+      "type": "boolean"
+    },
+    "idle_limit_s": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Live runs: seconds a run may stay paused before the worker stops it.",
+      "title": "Idle Limit S"
+    }
+  },
+  "required": [
+    "protocol",
+    "run_id",
+    "kind",
+    "created_at",
+    "name",
+    "system",
+    "paramset",
+    "components",
+    "connections",
+    "parameters",
+    "master",
+    "experiment",
+    "outputs",
+    "timeout_s",
+    "estimated_steps",
+    "force",
+    "versions",
+    "omsimulator",
+    "live",
+    "idle_limit_s"
+  ],
+  "title": "SystemSpec",
+  "type": "object"
+}

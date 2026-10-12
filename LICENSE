@@ -1,0 +1,21 @@
+Agentic FMI
+Copyright (c) 2026 Ahmed Attia (https://github.com/MechC-ODE)
+
+SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+The full license text is published at:
+https://polyformproject.org/licenses/noncommercial/1.0.0/
+
+Required Notice: Copyright (c) 2026 Ahmed Attia (https://github.com/MechC-ODE)
+
+Summary (for convenience only; the license text above governs):
+
+- You may use, copy, modify and share this software for noncommercial
+  purposes, for example research, teaching, study and personal projects.
+- Any commercial use needs a separate commercial license from the copyright
+  holder. Ask through https://github.com/MechC-ODE/agentic-fmi/issues or
+  https://github.com/MechC-ODE.
+
+Third-party components used by this software (for example FMPy, OMSimulator,
+pythonfmu, OpenModelica and the MCP Python SDK) keep their own licenses.

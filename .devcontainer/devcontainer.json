@@ -1,0 +1,8 @@
+{
+  "name": "Agentic FMI",
+  "dockerComposeFile": ["../compose.yaml"],
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "dev",
+  "shutdownAction": "none"
+}

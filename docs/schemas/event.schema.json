@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "EventType": {
+      "description": "Lifecycle events of runs and build jobs. New types are additive; ``fmu_built`` lines are\n:class:`BuildEvent`, not :class:`Event`. ``command`` (Phase 4): the worker of a live run\nappends one per command outcome; its message names the command ID, the action, applied or\nrejected, and the simulation time.",
+      "enum": [
+        "created",
+        "started",
+        "finished",
+        "failed",
+        "stopped",
+        "command"
+      ],
+      "title": "EventType",
+      "type": "string"
+    }
+  },
+  "description": "One line of ``events.jsonl``, at most :data:`MAX_EVENT_LINE_BYTES` bytes.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "type": {
+      "$ref": "#/$defs/EventType"
+    },
+    "source": {
+      "enum": [
+        "server",
+        "worker"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message"
+    }
+  },
+  "required": [
+    "protocol",
+    "at",
+    "run_id",
+    "type",
+    "source",
+    "message"
+  ],
+  "title": "Event",
+  "type": "object"
+}

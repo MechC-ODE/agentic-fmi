@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "ErrorCode": {
+      "description": "Why a run failed. New codes are additive; non-Python readers (the pane) must treat an\nunknown code as a generic failure.",
+      "enum": [
+        "timeout",
+        "worker_lost",
+        "fmu_changed",
+        "not_runnable",
+        "simulation_error",
+        "internal_error",
+        "build_failed",
+        "oms_changed"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    },
+    "RunError": {
+      "description": "The error attached to a ``failed`` status.",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "message": {
+          "description": "One or two sentences: what failed and what to do next.",
+          "title": "Message",
+          "type": "string"
+        },
+        "log_tail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The last part of log.txt (at most Limits.log_tail_bytes).",
+          "title": "Log Tail"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "log_tail"
+      ],
+      "title": "RunError",
+      "type": "object"
+    },
+    "RunState": {
+      "description": "Lifecycle state of a run. ``status.json`` is authoritative; ``index.json`` caches it.\n``paused``: a live run waiting at a communication point (ADR 0010).",
+      "enum": [
+        "queued",
+        "running",
+        "paused",
+        "finished",
+        "failed",
+        "stopped"
+      ],
+      "title": "RunState",
+      "type": "string"
+    }
+  },
+  "description": "``runs/<id>/status.json``: the authoritative state. Single writer at a time: the server\nwrites ``queued``; the worker owns the file while it lives; the server writes a terminal\nstate only after it has confirmed the worker is gone (ADR 0002, ADR 0007).",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "run_id": {
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/RunState"
+    },
+    "t": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Last simulation time reached.",
+      "title": "T"
+    },
+    "t_start": {
+      "title": "T Start",
+      "type": "number"
+    },
+    "t_stop": {
+      "title": "T Stop",
+      "type": "number"
+    },
+    "progress": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Progress",
+      "type": "number"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "started_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Started At"
+    },
+    "finished_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At"
+    },
+    "heartbeat_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Written by the worker's heartbeat thread, independent of t.",
+      "title": "Heartbeat At"
+    },
+    "pid": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Worker pid; also its process group id.",
+      "title": "Pid"
+    },
+    "pid_start_time": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Field 22 of /proc/<pid>/stat (clock ticks since boot); guards pid reuse.",
+      "title": "Pid Start Time"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RunError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "last_cmd": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Live runs: the ID of the last inbox command that got an outcome (a display field; outcomes/<id>.json is the record).",
+      "title": "Last Cmd"
+    },
+    "heartbeat_mono": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The worker's time.monotonic() (CLOCK_MONOTONIC, shared by the processes of one machine and blind to wall-clock jumps) when it wrote heartbeat_at. Staleness uses it; files without it fall back to heartbeat_at.",
+      "title": "Heartbeat Mono"
+    },
+    "speed": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Live runs: the pacing factor (1 = real time); null for batch runs.",
+      "title": "Speed"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Why a run ended where its state alone doesn't say: the live idle limit, or an FMU that ended the run before t_stop. Null otherwise.",
+      "title": "Reason"
+    }
+  },
+  "required": [
+    "protocol",
+    "run_id",
+    "state",
+    "t",
+    "t_start",
+    "t_stop",
+    "progress",
+    "updated_at",
+    "started_at",
+    "finished_at",
+    "heartbeat_at",
+    "pid",
+    "pid_start_time",
+    "error",
+    "last_cmd",
+    "heartbeat_mono",
+    "speed",
+    "reason"
+  ],
+  "title": "RunStatus",
+  "type": "object"
+}

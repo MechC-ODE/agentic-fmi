@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "SourceRef": {
+      "description": "The source file a build used, pinned by content hash.",
+      "properties": {
+        "path": {
+          "description": "Workspace-relative POSIX path of the source as given.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "Versions": {
+      "description": "Tool versions recorded with every run (principle 3).",
+      "properties": {
+        "agentic_fmi": {
+          "title": "Agentic Fmi",
+          "type": "string"
+        },
+        "fmpy": {
+          "title": "Fmpy",
+          "type": "string"
+        },
+        "numpy": {
+          "title": "Numpy",
+          "type": "string"
+        },
+        "python": {
+          "title": "Python",
+          "type": "string"
+        },
+        "platform": {
+          "description": "Machine and OS, for example x86_64-linux.",
+          "title": "Platform",
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentic_fmi",
+        "fmpy",
+        "numpy",
+        "python",
+        "platform"
+      ],
+      "title": "Versions",
+      "type": "object"
+    }
+  },
+  "description": "``runs/<id>/spec.json`` of a build job (``kind: \"build\"``, ADR 0008). Written once by the\nserver before the worker starts; immutable afterwards. The worker builds from the private\ncopy ``runs/<id>/source/<file name>``, whose sha256 is ``source.sha256``.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "run_id": {
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "kind": {
+      "const": "build",
+      "default": "build",
+      "title": "Kind",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "Absolute workspace root; the relative paths are under it.",
+      "title": "Workspace",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceRef"
+    },
+    "name": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$",
+      "title": "Name",
+      "type": "string"
+    },
+    "fmu_path": {
+      "description": "Workspace-relative output: generated/<name>/<name>.fmu.",
+      "title": "Fmu Path",
+      "type": "string"
+    },
+    "backend": {
+      "enum": [
+        "pythonfmu",
+        "omc"
+      ],
+      "title": "Backend",
+      "type": "string"
+    },
+    "options": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "The fixed tool options, e.g. fmi_version, fmu_type and, for omc, fmi_flags.",
+      "title": "Options",
+      "type": "object"
+    },
+    "overwrite": {
+      "default": false,
+      "description": "Replace an earlier build of this name (one with build.json).",
+      "title": "Overwrite",
+      "type": "boolean"
+    },
+    "timeout_s": {
+      "description": "Limit on the build's wall time.",
+      "exclusiveMinimum": 0,
+      "title": "Timeout S",
+      "type": "number"
+    },
+    "versions": {
+      "$ref": "#/$defs/Versions"
+    }
+  },
+  "required": [
+    "protocol",
+    "run_id",
+    "kind",
+    "created_at",
+    "workspace",
+    "source",
+    "name",
+    "fmu_path",
+    "backend",
+    "options",
+    "overwrite",
+    "timeout_s",
+    "versions"
+  ],
+  "title": "BuildSpec",
+  "type": "object"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "agentic-fmi-pane",
+  "displayName": "Agentic FMI live pane",
+  "version": "0.1.0",
+  "description": "Early-access live pane for Agentic FMI (/fmi): run progress, values with units, live charts, Pause/Resume/Step/Set/Stop for live runs, built FMUs and system connection diagrams. Reads only the run store; needs the agentic-fmi plugin.",
+  "author": {
+    "name": "Ahmed Attia",
+    "email": "a.e.gamal@gmail.com"
+  },
+  "homepage": "https://github.com/MechC-ODE/agentic-fmi",
+  "repository": "https://github.com/MechC-ODE/agentic-fmi",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "keywords": ["fmi", "fmu", "simulation", "pane", "live"],
+  "types": "./types/index.d.ts",
+  "dependencies": ["agentic-fmi"]
+}

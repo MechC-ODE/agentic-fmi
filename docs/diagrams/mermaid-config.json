@@ -1,0 +1,38 @@
+{
+  "theme": "neutral",
+  "handDrawnSeed": 1,
+  "fontFamily": "Arial, Helvetica, sans-serif",
+  "htmlLabels": false,
+  "themeVariables": {
+    "edgeLabelBackground": "#ffffff",
+    "noteBkgColor": "#fff8dc",
+    "noteTextColor": "#333333",
+    "noteBorderColor": "#c9b458"
+  },
+  "flowchart": {
+    "htmlLabels": false,
+    "useMaxWidth": false,
+    "curve": "basis",
+    "padding": 14,
+    "nodeSpacing": 40,
+    "rankSpacing": 50,
+    "wrappingWidth": 360
+  },
+  "sequence": {
+    "useMaxWidth": false,
+    "mirrorActors": false,
+    "width": 140,
+    "actorMargin": 40,
+    "messageMargin": 30,
+    "noteMargin": 12,
+    "boxMargin": 10,
+    "diagramMarginX": 20,
+    "diagramMarginY": 20,
+    "actorFontSize": 14,
+    "messageFontSize": 14,
+    "noteFontSize": 14
+  },
+  "state": {
+    "useMaxWidth": false
+  }
+}

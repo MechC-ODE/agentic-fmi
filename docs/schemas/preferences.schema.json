@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "``preferences.json`` in the store root: the user's choices for this workspace. Written\nonly by the MCP server (the ``response_style`` tool, atomically) and read on each call that\nneeds it; a missing or unreadable file means the defaults.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "response_style": {
+      "default": "talkative",
+      "description": "talkative: tool results carry summaries and Claude explains them. ninja: run, build and live-control results carry a status line and Claude replies with it.",
+      "enum": [
+        "talkative",
+        "ninja"
+      ],
+      "title": "Response Style",
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol",
+    "response_style"
+  ],
+  "title": "Preferences",
+  "type": "object"
+}

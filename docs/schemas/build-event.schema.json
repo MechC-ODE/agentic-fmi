@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "The ``events.jsonl`` line a successful build job appends once, after it wrote the FMU and\n``build.json`` (ADR 0008). Readers tell it from :class:`Event` by ``type``; run lifecycle\nevents are unchanged.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "The build job.",
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "type": {
+      "const": "fmu_built",
+      "default": "fmu_built",
+      "title": "Type",
+      "type": "string"
+    },
+    "source": {
+      "const": "worker",
+      "default": "worker",
+      "title": "Source",
+      "type": "string"
+    },
+    "fmu_path": {
+      "description": "Workspace-relative path of the new FMU.",
+      "title": "Fmu Path",
+      "type": "string"
+    },
+    "fmu_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Fmu Sha256",
+      "type": "string"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message"
+    }
+  },
+  "required": [
+    "protocol",
+    "at",
+    "run_id",
+    "type",
+    "source",
+    "fmu_path",
+    "fmu_sha256",
+    "message"
+  ],
+  "title": "BuildEvent",
+  "type": "object"
+}

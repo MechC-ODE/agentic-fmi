@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "``runs/<id>/outcomes/<command id>.json``: what the worker did with one command file.\n\nExactly one per command file the worker found (a file it could not read too, once its grace\nran out), written atomically by the worker only, before the matching ``command`` event. A\nreader finds it in O(1) from the command ID. The command files plus their outcomes (each\nwith its simulation time ``t``) are the run's replay log (principle 3).",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "run_id": {
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^\\d{13}-(server|pane)-[0-9a-f]{8}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "server",
+        "pane"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "action": {
+      "anyOf": [
+        {
+          "enum": [
+            "pause",
+            "resume",
+            "step",
+            "set",
+            "stop",
+            "chart"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Null when the file could not be read as a Command.",
+      "title": "Action"
+    },
+    "status": {
+      "enum": [
+        "applied",
+        "rejected"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "t": {
+      "description": "Simulation time when it took effect or was rejected; for step, the time the last step reached.",
+      "title": "T",
+      "type": "number"
+    },
+    "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Why it was rejected, or a note (already paused, 3 of 5 steps before the run ended). At most Limits.message_max_chars.",
+      "title": "Message"
+    }
+  },
+  "required": [
+    "protocol",
+    "run_id",
+    "id",
+    "source",
+    "action",
+    "status",
+    "t",
+    "at",
+    "message"
+  ],
+  "title": "CommandOutcome",
+  "type": "object"
+}

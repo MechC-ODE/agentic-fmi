@@ -1,0 +1,16 @@
+stateDiagram-v2
+    direction LR
+    [*] --> queued: created (server)
+    queued --> running: starts (worker)
+    queued --> failed: never started (server)
+    queued --> stopped: run_stop (server)
+    running --> paused: live run at t0, pause,<br/>end of a step (worker)
+    paused --> running: resume, step (worker)
+    paused --> stopped: stop, run_stop,<br/>idle limit
+    paused --> failed: worker_lost (server)
+    running --> failed: error or timeout (worker),<br/>worker_lost (server)
+    running --> finished: completes or ends early (worker)
+    running --> stopped: stop, run_stop
+    stopped --> [*]
+    finished --> [*]
+    failed --> [*]

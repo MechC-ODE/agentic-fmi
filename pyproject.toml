@@ -1,0 +1,87 @@
+[project]
+name = "agentic-fmi"
+version = "0.1.0.dev0"
+description = "Explore, run, control, compose and generate FMUs from Claude via MCP."
+readme = "README.md"
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Ahmed Attia", email = "a.e.gamal@gmail.com" }]
+requires-python = ">=3.11,<3.14"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Typing :: Typed",
+]
+dependencies = [
+    "fmpy==0.3.32",  # exact: step_finished is experimental and modules move between releases
+    "lxml>=5",  # ssp.py parses untrusted SSD/SSV with a hardened parser (no DTD, entities, network)
+    "matplotlib",  # PNG plots through Figure + FigureCanvasAgg (never pyplot)
+    "mcp>=2.3,<2.4",  # MCP Python SDK v2; server.py patches Tool internals, so re-verify on 2.4
+    "numpy>=2",
+    "OMSimulator==3.0.0.post198",  # exact; the sdist fetches unhashed binaries: config.OMSIMULATOR_PIN
+    "pydantic>=2.11",  # serialize_by_alias: the {"from", "to"} connection fields
+    "pythonfmu==0.7.0",  # exact: build.py relies on how its builder imports the slave module (ADR 0008)
+]
+
+[project.scripts]
+afmi = "agentic_fmi.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff",
+    "mypy",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "TID251"]
+
+# FMU native code runs only in workers (ADR 0002). These FMPy APIs load or unpack FMU binaries,
+# so only the engine and the worker may use them; the MCP server parses XML only.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"fmpy.simulate_fmu".msg = "Only engines/ and worker.py may run FMUs (ADR 0002)."
+"fmpy.instantiate_fmu".msg = "Only engines/ and worker.py may load FMU binaries (ADR 0002)."
+"fmpy.extract".msg = "Only worker.py may unpack FMUs, into its run directory (ADR 0002)."
+"fmpy.simulation".msg = "Only engines/ and worker.py may use fmpy.simulation (ADR 0002)."
+"fmpy.fmi1".msg = "FMI 1.0 is out of scope, and FMU classes load binaries (ADR 0002)."
+"fmpy.fmi2".msg = "Only engines/ and worker.py may load FMU binaries (ADR 0002)."
+"fmpy.fmi3".msg = "Only engines/ and worker.py may load FMU binaries (ADR 0002)."
+# Builds run pythonfmu as a subprocess (`python -I -B -m pythonfmu build`); importing it would put
+# its builder, and with it the user's slave module, into our process (ADR 0008).
+"pythonfmu".msg = "Run pythonfmu only as a subprocess from build.py, never import it (ADR 0008)."
+# import OMSimulator loads libOMSimulator.so, which logs to stdout and runs FMU code: only the
+# OMSimulator engine may import it, after the worker has verified the pinned digest (ADR 0009).
+"OMSimulator".msg = "Only engines/oms_engine.py may import OMSimulator, in a worker (ADR 0009)."
+
+[tool.ruff.lint.per-file-ignores]
+"src/agentic_fmi/engines/**" = ["TID251"]
+"src/agentic_fmi/worker.py" = ["TID251"]
+"spikes/**" = ["TID251"]
+"skills/**" = ["TID251"]  # example FMU sources are user code that subclasses pythonfmu.Fmi2Slave
+"tests/**" = ["TID251"]  # tests load OMSimulator and FMPy on purpose (smoke, export re-import)
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+warn_unused_ignores = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["fmpy.*", "lxml.*", "OMSimulator.*", "pythonfmu.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = [
+    "oms: runs OMSimulator (in a worker or child process)",
+    "omc: needs OpenModelica",
+    "slow: long-running test",
+]

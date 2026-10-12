@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "IndexEntry": {
+      "description": "One run, build job or system run in ``index.json``. ``state`` is a cached copy of\n``status.json``.",
+      "properties": {
+        "run_id": {
+          "pattern": "^r[1-9]\\d*$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "kind": {
+          "default": "run",
+          "enum": [
+            "run",
+            "build",
+            "system"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/RunState"
+        },
+        "fmu_name": {
+          "description": "The FMU's model name; for a build job, the build name; for a system run, the system's name.",
+          "title": "Fmu Name",
+          "type": "string"
+        },
+        "fmu_path": {
+          "description": "Absolute FMU path; for a build job, the output FMU; for a system run, the system file.",
+          "title": "Fmu Path",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "kind",
+        "state",
+        "fmu_name",
+        "fmu_path",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "IndexEntry",
+      "type": "object"
+    },
+    "RunState": {
+      "description": "Lifecycle state of a run. ``status.json`` is authoritative; ``index.json`` caches it.\n``paused``: a live run waiting at a communication point (ADR 0010).",
+      "enum": [
+        "queued",
+        "running",
+        "paused",
+        "finished",
+        "failed",
+        "stopped"
+      ],
+      "title": "RunState",
+      "type": "string"
+    }
+  },
+  "description": "``index.json``: every run in ascending run number. Written by MCP servers only, under the\nstore lock.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "runs": {
+      "items": {
+        "$ref": "#/$defs/IndexEntry"
+      },
+      "title": "Runs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "protocol",
+    "runs"
+  ],
+  "title": "Index",
+  "type": "object"
+}

@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    participant C as Claude
+    participant S as MCP server
+    participant W as Worker
+    participant R as Run store
+    participant P as Pane
+
+    Note over C,P: Phase 4 (ADR 0010). A live run is an ordinary run with live: true.
+    C->>S: run_start(fmu or system, live=true)
+    S->>R: spec.json (live, idle_limit_s), status queued
+    S-)W: spawn worker
+    W->>R: status running, then paused at t0<br/>(heartbeat continues)
+    S-->>C: run r7 paused at t0
+    C->>S: run_control(r7, set, {PI.Kp: 12})
+    Note right of S: live.settable checks the name<br/>and value first
+    S->>R: commands/#lt;ms13#gt;-server-#lt;rand8#gt;.json (exclusive create)
+    W->>R: gate polls the inbox, applies the set,<br/>outcomes/<id>.json with t, command event
+    S->>R: read the outcome (O(1))
+    S-->>C: applied at t=0, paused
+    C->>S: run_control(r7, resume, speed=2)
+    S->>R: commands/... resume
+    W->>R: status running, speed 2, paced steps,<br/>live.json at most 5 Hz
+    P->>R: poll index.json, status.json, live.json<br/>(stat first), draw charts and values
+    P->>R: user presses Pause:<br/>commands/#lt;ms13#gt;-pane-#lt;rand8#gt;.json
+    W->>R: outcome applied, status paused
+    P->>R: read the outcome, toast it
+    C->>S: run_status(r7, values=[plant.x])
+    S->>R: read live.json
+    S-->>C: plant.x = 0.98 m at t=4.2
+    C->>S: run_control(r7, stop)
+    S->>R: commands/... stop
+    W->>R: result.csv, summary.json,<br/>status stopped (partial result)

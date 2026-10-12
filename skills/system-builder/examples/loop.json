@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "components": {
+    "PI": {
+      "fmu": "generated/pi_controller/pi_controller.fmu",
+      "parameters": {"Kp": 10, "Ki": 15, "r": 1}
+    },
+    "plant": {
+      "fmu": "generated/MSD/MSD.fmu"
+    }
+  },
+  "connections": [
+    {"from": "PI.u", "to": "plant.F"},
+    {"from": "plant.x", "to": "PI.y"}
+  ],
+  "experiment": {"start_time": 0, "stop_time": 10, "step_size": 0.01}
+}

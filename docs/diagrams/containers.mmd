@@ -1,0 +1,20 @@
+flowchart TB
+    subgraph dev["Dev container agentic-fmi-dev: Ubuntu 24.04, user dev"]
+        direction TB
+        subgraph ccp["Claude Code process: Node 24"]
+            direction TB
+            core["Core plugin agentic-fmi<br/>mcpServers entry, skills"]
+            pane["Pane mod agentic-fmi-pane<br/>TSX on the early-access mod API"]
+        end
+        mcp["afmi mcp: Python 3.12<br/>MCP SDK v2, pydantic<br/>FMPy XML parsing only"]
+        worker["afmi worker, one per run<br/>FMPy or OMSimulator<br/>+ FMU native code"]:::native
+        store[("Run store<br/>workspace/.agentic-fmi/<br/>JSON, JSONL, CSV, PNG")]
+    end
+
+    core -->|"starts via plugin.json<br/>mcpServers, stdio"| mcp
+    mcp -->|"spawns"| worker
+    mcp <-->|"writes specs,<br/>reads results"| store
+    worker -->|"writes status,<br/>results"| store
+    pane <-->|"polls with $.fs and $.clock,<br/>writes commands"| store
+
+    classDef native fill:#fde9d9,stroke:#c4662a

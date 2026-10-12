@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "RunState": {
+      "description": "Lifecycle state of a run. ``status.json`` is authoritative; ``index.json`` caches it.\n``paused``: a live run waiting at a communication point (ADR 0010).",
+      "enum": [
+        "queued",
+        "running",
+        "paused",
+        "finished",
+        "failed",
+        "stopped"
+      ],
+      "title": "RunState",
+      "type": "string"
+    },
+    "VariableSummary": {
+      "description": "Compact statistics of one recorded variable. Non-finite or non-numeric values are null.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max"
+        },
+        "final": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final"
+        },
+        "min_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Time of the first minimum.",
+          "title": "Min At"
+        },
+        "max_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Time of the first maximum.",
+          "title": "Max At"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "min",
+        "max",
+        "final",
+        "min_at",
+        "max_at"
+      ],
+      "title": "VariableSummary",
+      "type": "object"
+    }
+  },
+  "description": "``runs/<id>/summary.json``: compact results, written by the worker with ``result.csv``\nwhen a run finishes or stops.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "run_id": {
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/RunState"
+    },
+    "t_end": {
+      "title": "T End",
+      "type": "number"
+    },
+    "n_points": {
+      "minimum": 0,
+      "title": "N Points",
+      "type": "integer"
+    },
+    "wall_time_s": {
+      "minimum": 0,
+      "title": "Wall Time S",
+      "type": "number"
+    },
+    "columns": {
+      "description": "result.csv columns after time.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+    },
+    "variables": {
+      "items": {
+        "$ref": "#/$defs/VariableSummary"
+      },
+      "title": "Variables",
+      "type": "array"
+    }
+  },
+  "required": [
+    "protocol",
+    "run_id",
+    "state",
+    "t_end",
+    "n_points",
+    "wall_time_s",
+    "columns",
+    "variables"
+  ],
+  "title": "RunSummary",
+  "type": "object"
+}

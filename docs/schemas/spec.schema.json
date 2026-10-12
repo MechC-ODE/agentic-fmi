@@ -1,0 +1,447 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Constant": {
+      "description": "``value`` for the whole run.",
+      "properties": {
+        "kind": {
+          "const": "constant",
+          "default": "constant",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "Constant",
+      "type": "object"
+    },
+    "Experiment": {
+      "description": "The resolved experiment: caller overrides on top of the FMU's defaultExperiment, with\nFMPy's defaults made explicit so ``spec.json`` alone reproduces the run.",
+      "properties": {
+        "start_time": {
+          "title": "Start Time",
+          "type": "number"
+        },
+        "stop_time": {
+          "title": "Stop Time",
+          "type": "number"
+        },
+        "output_interval": {
+          "exclusiveMinimum": 0,
+          "title": "Output Interval",
+          "type": "number"
+        },
+        "relative_tolerance": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relative Tolerance"
+        },
+        "step_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model Exchange solver step; null means FMPy's default.",
+          "title": "Step Size"
+        }
+      },
+      "required": [
+        "start_time",
+        "stop_time",
+        "output_interval",
+        "relative_tolerance",
+        "step_size"
+      ],
+      "title": "Experiment",
+      "type": "object"
+    },
+    "FmuRef": {
+      "description": "The FMU a run used, pinned by content hash.",
+      "properties": {
+        "path": {
+          "description": "Absolute, symlink-resolved path at run creation.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "fmi_version": {
+          "enum": [
+            "2.0",
+            "3.0"
+          ],
+          "title": "Fmi Version",
+          "type": "string"
+        },
+        "model_name": {
+          "title": "Model Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "fmi_version",
+        "model_name"
+      ],
+      "title": "FmuRef",
+      "type": "object"
+    },
+    "Ramp": {
+      "description": "``before`` until ``start``, linear to ``after`` at ``end``, then ``after``.",
+      "properties": {
+        "kind": {
+          "const": "ramp",
+          "default": "ramp",
+          "title": "Kind",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "number"
+        },
+        "end": {
+          "title": "End",
+          "type": "number"
+        },
+        "before": {
+          "default": 0.0,
+          "title": "Before",
+          "type": "number"
+        },
+        "after": {
+          "title": "After",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "start",
+        "end",
+        "before",
+        "after"
+      ],
+      "title": "Ramp",
+      "type": "object"
+    },
+    "Step": {
+      "description": "``before`` until ``time``, then ``after``.",
+      "properties": {
+        "kind": {
+          "const": "step",
+          "default": "step",
+          "title": "Kind",
+          "type": "string"
+        },
+        "time": {
+          "title": "Time",
+          "type": "number"
+        },
+        "before": {
+          "default": 0.0,
+          "title": "Before",
+          "type": "number"
+        },
+        "after": {
+          "title": "After",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "time",
+        "before",
+        "after"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "Table": {
+      "description": "Time-value points with non-decreasing times, ``linear`` or zero-order ``hold``.",
+      "properties": {
+        "kind": {
+          "const": "table",
+          "default": "table",
+          "title": "Kind",
+          "type": "string"
+        },
+        "points": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Points",
+          "type": "array"
+        },
+        "interpolation": {
+          "default": "linear",
+          "enum": [
+            "linear",
+            "hold"
+          ],
+          "title": "Interpolation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "points",
+        "interpolation"
+      ],
+      "title": "Table",
+      "type": "object"
+    },
+    "Versions": {
+      "description": "Tool versions recorded with every run (principle 3).",
+      "properties": {
+        "agentic_fmi": {
+          "title": "Agentic Fmi",
+          "type": "string"
+        },
+        "fmpy": {
+          "title": "Fmpy",
+          "type": "string"
+        },
+        "numpy": {
+          "title": "Numpy",
+          "type": "string"
+        },
+        "python": {
+          "title": "Python",
+          "type": "string"
+        },
+        "platform": {
+          "description": "Machine and OS, for example x86_64-linux.",
+          "title": "Platform",
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentic_fmi",
+        "fmpy",
+        "numpy",
+        "python",
+        "platform"
+      ],
+      "title": "Versions",
+      "type": "object"
+    }
+  },
+  "description": "``runs/<id>/spec.json``: everything needed to reproduce the run. Written once by the\nserver before the worker starts; immutable afterwards.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "run_id": {
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "kind": {
+      "const": "run",
+      "default": "run",
+      "title": "Kind",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "fmu": {
+      "$ref": "#/$defs/FmuRef"
+    },
+    "fmi_type": {
+      "enum": [
+        "CoSimulation",
+        "ModelExchange"
+      ],
+      "title": "Fmi Type",
+      "type": "string"
+    },
+    "solver": {
+      "default": "CVode",
+      "description": "Model Exchange solver; ignored for Co-Simulation.",
+      "enum": [
+        "CVode",
+        "Euler"
+      ],
+      "title": "Solver",
+      "type": "string"
+    },
+    "experiment": {
+      "$ref": "#/$defs/Experiment"
+    },
+    "start_values": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "title": "Start Values",
+      "type": "object"
+    },
+    "inputs": {
+      "additionalProperties": {
+        "discriminator": {
+          "mapping": {
+            "constant": "#/$defs/Constant",
+            "ramp": "#/$defs/Ramp",
+            "step": "#/$defs/Step",
+            "table": "#/$defs/Table"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/Constant"
+          },
+          {
+            "$ref": "#/$defs/Step"
+          },
+          {
+            "$ref": "#/$defs/Ramp"
+          },
+          {
+            "$ref": "#/$defs/Table"
+          }
+        ]
+      },
+      "description": "Input signals keyed by variable name, as given.",
+      "title": "Inputs",
+      "type": "object"
+    },
+    "outputs": {
+      "description": "Variables recorded in result.csv, besides time.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Outputs",
+      "type": "array"
+    },
+    "timeout_s": {
+      "description": "Limit on wall time spent stepping; time the gate waits is excluded.",
+      "exclusiveMinimum": 0,
+      "title": "Timeout S",
+      "type": "number"
+    },
+    "estimated_steps": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Internal step-count estimate made at creation, if known.",
+      "title": "Estimated Steps"
+    },
+    "force": {
+      "default": false,
+      "description": "True if the step-count guard was overridden.",
+      "title": "Force",
+      "type": "boolean"
+    },
+    "versions": {
+      "$ref": "#/$defs/Versions"
+    },
+    "live": {
+      "default": false,
+      "description": "A live run (ADR 0010): starts paused at start_time, is paced and takes inbox commands. Co-Simulation only.",
+      "title": "Live",
+      "type": "boolean"
+    },
+    "idle_limit_s": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Live runs: seconds a run may stay paused before the worker stops it.",
+      "title": "Idle Limit S"
+    }
+  },
+  "required": [
+    "protocol",
+    "run_id",
+    "kind",
+    "created_at",
+    "fmu",
+    "fmi_type",
+    "solver",
+    "experiment",
+    "start_values",
+    "inputs",
+    "outputs",
+    "timeout_s",
+    "estimated_steps",
+    "force",
+    "versions",
+    "live",
+    "idle_limit_s"
+  ],
+  "title": "RunSpec",
+  "type": "object"
+}

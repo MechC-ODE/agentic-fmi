@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "BuildExperiment": {
+      "description": "The built FMU's DefaultExperiment; each field is null if the FMU doesn't declare it.",
+      "properties": {
+        "start_time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Time"
+        },
+        "stop_time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stop Time"
+        },
+        "step_size": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step Size"
+        },
+        "tolerance": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tolerance"
+        }
+      },
+      "required": [
+        "start_time",
+        "stop_time",
+        "step_size",
+        "tolerance"
+      ],
+      "title": "BuildExperiment",
+      "type": "object"
+    },
+    "BuildSummary": {
+      "description": "Compact inspect facts of the built FMU, read from its modelDescription.xml only.",
+      "properties": {
+        "counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Variables per causality, plus 'total'.",
+          "title": "Counts",
+          "type": "object"
+        },
+        "inputs": {
+          "description": "Input names (at most Limits.inspect_max_items).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "outputs": {
+          "description": "Output names (at most Limits.inspect_max_items).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Outputs",
+          "type": "array"
+        },
+        "parameters": {
+          "description": "Parameter names, tunable first (at most Limits.inspect_max_items).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "default_experiment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BuildExperiment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "counts",
+        "inputs",
+        "outputs",
+        "parameters",
+        "default_experiment"
+      ],
+      "title": "BuildSummary",
+      "type": "object"
+    },
+    "BuildVersions": {
+      "description": "Tool versions recorded with every build (principle 3).",
+      "properties": {
+        "agentic_fmi": {
+          "title": "Agentic Fmi",
+          "type": "string"
+        },
+        "python": {
+          "title": "Python",
+          "type": "string"
+        },
+        "platform": {
+          "description": "Machine and OS, for example x86_64-linux.",
+          "title": "Platform",
+          "type": "string"
+        },
+        "pythonfmu": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "pythonfmu builds only.",
+          "title": "Pythonfmu"
+        },
+        "omc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "omc builds only: getVersion().",
+          "title": "Omc"
+        },
+        "msl": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "omc builds only: the Modelica Standard Library loaded.",
+          "title": "Msl"
+        }
+      },
+      "required": [
+        "agentic_fmi",
+        "python",
+        "platform",
+        "pythonfmu",
+        "omc",
+        "msl"
+      ],
+      "title": "BuildVersions",
+      "type": "object"
+    },
+    "BuiltFmu": {
+      "description": "The FMU a build wrote, pinned by content hash.",
+      "properties": {
+        "path": {
+          "description": "Workspace-relative POSIX path: generated/<name>/<name>.fmu.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "fmi_version": {
+          "const": "2.0",
+          "title": "Fmi Version",
+          "type": "string"
+        },
+        "model_name": {
+          "title": "Model Name",
+          "type": "string"
+        },
+        "model_identifier": {
+          "title": "Model Identifier",
+          "type": "string"
+        },
+        "interfaces": {
+          "items": {
+            "enum": [
+              "CoSimulation",
+              "ModelExchange"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Interfaces",
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "fmi_version",
+        "model_name",
+        "model_identifier",
+        "interfaces"
+      ],
+      "title": "BuiltFmu",
+      "type": "object"
+    },
+    "SourceRef": {
+      "description": "The source file a build used, pinned by content hash.",
+      "properties": {
+        "path": {
+          "description": "Workspace-relative POSIX path of the source as given.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "description": "``build.json``: the provenance of one built FMU (ADR 0008). The worker writes it next to\nthe FMU (``generated/<name>/build.json``, replaced by a later ``overwrite`` build) and keeps\nthe same record in ``runs/<id>/build.json``. ``fmu.sha256`` is the sha256 of the FMU file\nwritten with it.",
+  "properties": {
+    "protocol": {
+      "const": 1,
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "run_id": {
+      "description": "The build job; its log is runs/<run_id>/build.log.",
+      "pattern": "^r[1-9]\\d*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "name": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$",
+      "title": "Name",
+      "type": "string"
+    },
+    "built_at": {
+      "format": "date-time",
+      "title": "Built At",
+      "type": "string"
+    },
+    "backend": {
+      "enum": [
+        "pythonfmu",
+        "omc"
+      ],
+      "title": "Backend",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceRef"
+    },
+    "options": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Options",
+      "type": "object"
+    },
+    "versions": {
+      "$ref": "#/$defs/BuildVersions"
+    },
+    "fmu": {
+      "$ref": "#/$defs/BuiltFmu"
+    },
+    "duration_s": {
+      "description": "Wall time of the build tool.",
+      "minimum": 0,
+      "title": "Duration S",
+      "type": "number"
+    },
+    "warnings": {
+      "description": "Tool warnings as 'path:line[:col]: warning: text' lines (capped).",
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "replaced_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "sha256 of the FMU this build replaced (overwrite only).",
+      "title": "Replaced Sha256"
+    },
+    "summary": {
+      "$ref": "#/$defs/BuildSummary"
+    }
+  },
+  "required": [
+    "protocol",
+    "run_id",
+    "name",
+    "built_at",
+    "backend",
+    "source",
+    "options",
+    "versions",
+    "fmu",
+    "duration_s",
+    "warnings",
+    "replaced_sha256",
+    "summary"
+  ],
+  "title": "BuildRecord",
+  "type": "object"
+}

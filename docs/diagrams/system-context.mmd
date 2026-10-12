@@ -1,0 +1,20 @@
+flowchart TB
+    user(["User"])
+    cc["Claude Code<br/>+ core plugin agentic-fmi"]
+    pane["Pane plugin agentic-fmi-pane<br/>hosted by Claude Code"]
+    mcp["MCP server<br/>afmi mcp"]
+    store[("Run store<br/>workspace/.agentic-fmi/")]
+    worker["Worker, one per run<br/>afmi worker"]:::native
+    fmus["FMU files<br/>(read-only inputs)"]
+
+    user <-->|"prompts, answers"| cc
+    user <-->|"watches, presses buttons"| pane
+    cc <-->|"MCP over stdio"| mcp
+    mcp <-->|"creates runs,<br/>reads results"| store
+    mcp -->|"spawns"| worker
+    worker -->|"runs native code"| fmus
+    mcp -->|"reads XML only"| fmus
+    pane <-->|"polls files,<br/>writes commands"| store
+    worker -->|"writes status,<br/>results"| store
+
+    classDef native fill:#fde9d9,stroke:#c4662a

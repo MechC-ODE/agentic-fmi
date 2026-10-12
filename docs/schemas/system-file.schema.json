@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Connection": {
+      "additionalProperties": false,
+      "description": "``{\"from\": \"<component>.<output>\", \"to\": \"<component>.<input>\"}``.",
+      "properties": {
+        "from": {
+          "description": "<component>.<output variable>.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}\\..+$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "<component>.<input variable>.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}\\..+$",
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "Connection",
+      "type": "object"
+    },
+    "SystemComponent": {
+      "additionalProperties": false,
+      "description": "One component: an FMU and the parameter values the system gives it.",
+      "properties": {
+        "fmu": {
+          "description": "FMU path, relative to the system file's directory (or absolute), inside the workspace.",
+          "minLength": 1,
+          "title": "Fmu",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "description": "Start values by variable name (parameters, inputs not driven by a connection, or states with initial exact or approx).",
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "fmu"
+      ],
+      "title": "SystemComponent",
+      "type": "object"
+    },
+    "SystemExperiment": {
+      "additionalProperties": false,
+      "description": "The system's experiment; ``run_start`` may override each field.",
+      "properties": {
+        "start_time": {
+          "default": 0.0,
+          "title": "Start Time",
+          "type": "number"
+        },
+        "stop_time": {
+          "title": "Stop Time",
+          "type": "number"
+        },
+        "step_size": {
+          "description": "Communication step h in seconds; one result row per step. Choose it consciously: the Jacobi coupling adds up to a step of delay around a loop.",
+          "exclusiveMinimum": 0,
+          "title": "Step Size",
+          "type": "number"
+        }
+      },
+      "required": [
+        "stop_time",
+        "step_size"
+      ],
+      "title": "SystemExperiment",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A system file, version 1 (ADR 0009).",
+  "properties": {
+    "version": {
+      "const": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "components": {
+      "minProperties": 1,
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]{0,63}$": {
+          "$ref": "#/$defs/SystemComponent"
+        }
+      },
+      "title": "Components",
+      "type": "object"
+    },
+    "connections": {
+      "items": {
+        "$ref": "#/$defs/Connection"
+      },
+      "title": "Connections",
+      "type": "array"
+    },
+    "experiment": {
+      "$ref": "#/$defs/SystemExperiment"
+    }
+  },
+  "required": [
+    "version",
+    "components",
+    "experiment"
+  ],
+  "title": "SystemFile",
+  "type": "object"
+}

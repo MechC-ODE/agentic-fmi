@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+/build/
+/dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Agentic FMI runtime state and generated artifacts
+.agentic-fmi/
+generated/
+
+# FMUs, systems and downloads are fetched or generated, never committed
+*.fmu
+*.ssp
+.cache/
+
+# Node tooling for the pane plugin
+node_modules/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code per-user settings
+.claude/settings.local.json
+
+# Local Claude Code instructions and agents (not published)
+/CLAUDE.md
+.claude/agents/

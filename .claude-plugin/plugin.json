@@ -1,0 +1,20 @@
+{
+  "name": "agentic-fmi",
+  "displayName": "Agentic FMI",
+  "version": "0.1.0",
+  "description": "Explore, validate, simulate, compare and plot FMUs (FMI 2.0 and 3.0) from Claude in natural language. Runs each simulation in an isolated worker process.",
+  "author": {
+    "name": "Ahmed Attia",
+    "email": "a.e.gamal@gmail.com"
+  },
+  "homepage": "https://github.com/MechC-ODE/agentic-fmi",
+  "repository": "https://github.com/MechC-ODE/agentic-fmi",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "keywords": ["fmi", "fmu", "simulation", "modelica", "co-simulation", "mcp"],
+  "mcpServers": {
+    "fmi": {
+      "command": "sh",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/afmi-mcp", "${CLAUDE_PROJECT_DIR}"]
+    }
+  }
+}
