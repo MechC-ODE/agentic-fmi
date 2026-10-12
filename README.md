@@ -10,11 +10,12 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue"></a>
   <img alt="FMI 2.0 and 3.0" src="https://img.shields.io/badge/FMI-2.0%20%7C%203.0-orange">
+  <img alt="SSP import and export" src="https://img.shields.io/badge/SSP-import%20%7C%20export-orange">
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776ab">
   <img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude%20Code-plugin-d97757">
 </p>
 
-Agentic FMI turns Claude Code into a simulation assistant for [FMI](https://fmi-standard.org/) models (FMUs). Ask in plain language: inspect an FMU, simulate and compare runs, build new FMUs from Python or Modelica, connect them into a closed loop, and steer a live simulation while a pane inside Claude Code charts it. Claude reads compact results (metrics and plots), decides the next experiment and acts again.
+Agentic FMI turns Claude Code into a simulation assistant for [FMI](https://fmi-standard.org/) models (FMUs). Ask in plain language: inspect an FMU, simulate and compare runs, build new FMUs from Python or Modelica, connect them into systems and exchange those as [SSP](https://ssp-standard.org/) files, and steer a live simulation while a pane inside Claude Code charts it. Claude reads compact results (metrics and plots), decides the next experiment and acts again.
 
 <p align="center"><img src="docs/images/pane-live.png" alt="The Agentic FMI pane in Claude Code: a live PI controller and mass-spring-damper loop with its status, controls, values and charts" width="780"></p>
 
@@ -25,7 +26,8 @@ Agentic FMI turns Claude Code into a simulation assistant for [FMI](https://fmi-
 | *"What FMUs are in this folder? Inspect BouncingBall."* | Interfaces, variables with units, tunable parameters and whether each FMU runs here. |
 | *"Simulate it with e = 0.5 and e = 0.8, compare and plot the height."* | Two runs, a comparison of what changed and one plot. Compact summaries, never raw data dumps. |
 | *"Write a PI controller in Python and a mass-spring-damper in Modelica."* | Claude writes the sources, builds FMI 2.0 FMUs and tests them. |
-| *"Connect them in a closed loop and tune Kp and Ki for less than 5 % overshoot."* | A system co-simulated with OMSimulator, tuned run by run, exportable as SSP. |
+| *"Connect them in a closed loop and tune Kp and Ki for less than 5 % overshoot."* | A system co-simulated with OMSimulator, tuned run by run. |
+| *"Export the tuned loop as tuned.ssp with its parameters." / "Import plant.ssp and run it."* | SSP and SSV import and export, so systems and parameter sets move to and from other SSP tools. |
 | *"Start the loop live, step it, then set Kp to 8 while it runs."* | A live run you and Claude steer together, charted in the pane (`/fmi`). |
 | *"Ninja mode."* | Status-only replies: `🥷 r12 done: BouncingBall, t=3 s.` |
 
@@ -113,6 +115,7 @@ Details: [architecture](docs/architecture.md) and [the run-store protocol](docs/
 - FMI 2.0 and 3.0, Co-Simulation and Model Exchange. FMI 1.0 and Scheduled Execution are not supported.
 - FMUs need Linux x86-64 binaries. Windows-only FMUs are reported as not runnable.
 - Live control needs Co-Simulation. Up to four runs at a time.
+- SSP import takes flat systems (one level of components); nested systems, parameter mappings (SSM) and signal dictionaries are refused by name. Exports use SSD 1.0 where it suffices and SSD 2.0 when the system needs it (for example an FMI 3.0 component).
 - FMUs run native code. Agentic FMI isolates it from the server, but it is not a sandbox: use FMUs you trust.
 - The pane uses an early-access Claude Code extension API and may need updates as Claude Code evolves.
 
