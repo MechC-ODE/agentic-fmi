@@ -119,7 +119,7 @@ The live and server-side tests take about 90 s together (192 tests; real workers
 ### Response styles
 
 - **`tests/test_style.py`** (31 tests) checks `style.py` on hand-built `RunView`s: the line for every state, a system run's name, the build lines, numbers with at most four significant digits, and `ninja_view` (no summary, build facts or log tail; error code, message and requested `values` kept; the input view unchanged).
-- **`tests/store/test_preferences.py`** (9 tests) covers `preferences.json`: the default, an atomic round trip, and a missing, torn, wrong-type, wrong-protocol or empty file reading as talkative.
+- **`tests/store/test_preferences.py`** (9 tests) covers `preferences.json`: the default, an atomic round trip, and a missing, torn, wrong-type, wrong-protocol or empty file reading as ninja, the default. The other MCP tests run in talkative mode (their `mcp_config` fixture stores it), because they read full summaries.
 - **`tests/mcp/test_mcp_style.py`** (15 tests) drives `response_style` and the styled tools through the in-memory client: set, report and persistence (a second server on the same store), a corrupt or unwritable preferences path, ninja `run_start`, `run_status`, `run_stop`, live `run_control` and `fmu_build` (the `pi_controller` example, one real pythonfmu build), talkative output unchanged, and refusals identical in both modes. `test_mcp_tools.py` pins the `tools/list` size (31,822 of 32,000 bytes with 18 tools).
 
 ## Smoke tests (`tests/test_smoke.py`)

@@ -17,7 +17,7 @@ The run store is the only contract between the MCP server, the workers and the p
   index.json                 every run with its cached state (MCP servers only, under .lock)
   events.jsonl               append-only lifecycle events, one JSON object per line
   .lock                      flock target: index.json read-modify-write and the server's terminal status writes
-  preferences.json           Preferences: the response style (talkative or ninja); the MCP server only; optional
+  preferences.json           Preferences: the response style (ninja or talkative); the MCP server only; optional
   runs/
     r12/                     one batch run; the directory is created by the ID claim
       spec.json              everything needed to reproduce the run; immutable
@@ -193,10 +193,10 @@ Live runs only ([ADR 0010](adr/0010-live-runs-and-the-pane.md); code: `store/inb
 
 ## preferences.json
 
-`<store>/preferences.json` is a `Preferences`: `protocol` (1) and `response_style`, `"talkative"` (the default) or `"ninja"`. It records how the user wants Claude to answer in this workspace; the file is additive, so the protocol stays 1.
+`<store>/preferences.json` is a `Preferences`: `protocol` (1) and `response_style`, `"ninja"` (the default) or `"talkative"`. It records how the user wants Claude to answer in this workspace; the file is additive, so the protocol stays 1.
 
 - **Writer.** The MCP server only, atomically, when Claude calls `response_style` with a `style`. Workers and the pane never write it.
-- **Readers.** The server, on each `run_start`, `run_status`, `run_stop`, `run_control`, `fmu_build` and `response_style` call, so a change takes effect at once and survives a restart. A missing, unreadable or invalid file (including another `protocol`) reads as `"talkative"`; a preference never fails a tool.
+- **Readers.** The server, on each `run_start`, `run_status`, `run_stop`, `run_control`, `fmu_build` and `response_style` call, so a change takes effect at once and survives a restart. A missing, unreadable or invalid file (including another `protocol`) reads as `"ninja"`; a preference never fails a tool.
 - **Effect.** In `"ninja"` mode those five tools return their `RunView` without `summary`, `build` and the error's `log_tail`, and with a one-line status in `hint` (see `style.py`). Nothing in a run's own files changes, and refusals (`ToolError`) are the same in both modes.
 
 ## Versioning rule

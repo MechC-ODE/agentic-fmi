@@ -96,9 +96,10 @@ Say which FMU and interface ran, the run IDs, what differed between runs (`run_c
 
 ## Response style
 
-The default is **talkative**: summarize, explain and suggest the next step, as above. When the user asks for **ninja** mode (status only, "just tell me when it's done"), call `response_style("ninja")`. Then:
+The default is **ninja**: status only.
 
 - For `run_start`, `run_status`, `run_stop`, `run_control` and `fmu_build` results, reply with the result's 🥷 line (its `hint`) and nothing else: no summary, table or suggestion. Example: "🥷 r12 done: BouncingBall, t=3 s."
 - An explicit question (compare, plot, results, inspect, "what was the final height?") still gets a brief answer; use `run_results`, `run_compare` and `run_plot`, which return the same data in both modes.
 - Errors and refusals come back in full in both modes. Act on them as usual and report only the outcome.
-- `response_style("talkative")` switches back; `response_style` without an argument reports the current style. The style persists in the workspace.
+
+When the user asks for explanations ("talkative mode", "explain the results"), call `response_style("talkative")`: then summarize, explain and suggest the next step, as described above. `response_style("ninja")` switches back; `response_style` without an argument reports the current style. The style persists in the workspace.

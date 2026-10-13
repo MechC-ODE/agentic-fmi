@@ -11,7 +11,7 @@ already appears in three tools. ``tools/list`` must stay under 32 KB (ADR 0009 r
 ``run_status(values)`` by trimming descriptions: 31.1 KB). ``run_control`` and
 ``run_status(values)`` call ``control.py`` (live runs, ADR 0010).
 
-Response styles: ``response_style`` stores "talkative" (the default) or "ninja" in the run
+Response styles: ``response_style`` stores "ninja" (the default) or "talkative" in the run
 store's ``preferences.json``. In ninja mode the adapters that return a ``RunView`` (``run_start``,
 ``run_status``, ``run_stop``, ``run_control``, ``fmu_build``) pass it through ``style.ninja_view``
 (see :func:`_styled`): no summary, build facts or log tail, and a one-line status as the hint.
@@ -96,9 +96,10 @@ INSTRUCTIONS = (
     "run_plot. Build FMUs from .py or .mo files with fmu_build. Connect FMUs in a system "
     "file (JSON), check it with system_check and run it with run_start(system=...); "
     "system_import and system_export convert SSP files. Tools return compact summaries and "
-    "plots, never raw time series. Reply style: call response_style when the user asks for "
-    "ninja (status lines only) or talkative mode; in ninja mode reply to run, build and "
-    "live-control results with their 🥷 line only."
+    "plots, never raw time series. Reply style: ninja by default (reply to run, build and "
+    "live-control results with their 🥷 line only); call response_style when the user asks "
+    "for talkative (full summaries) or ninja mode. Never download or install anything on your "
+    "own; for an example, build a ready-made one (see the fmi-expert skill)."
 )
 
 PROBLEM_MAX_CHARS = 300
@@ -184,8 +185,8 @@ def _reply(state: AppState, model: BaseModel) -> CallToolResult:
 
 
 def _styled(state: AppState, view: RunView) -> RunView:
-    """``view`` in the stored response style: unchanged in talkative mode, else its ninja view.
-    Read on each call; a missing or unreadable ``preferences.json`` means talkative."""
+    """``view`` in the stored response style: its ninja view, or unchanged in talkative mode.
+    Read on each call; a missing or unreadable ``preferences.json`` means ninja (the default)."""
     if runstore.read_preferences(state.config.store_dir).response_style == "ninja":
         return ninja_view(view)
     return view
@@ -598,8 +599,8 @@ def response_style(
         ResponseStyle | None, Field(description="Default: report the current style.")
     ] = None,
 ) -> Annotated[CallToolResult, StyleResult]:
-    """Set the reply style: ninja (run, build and live-control results come as one 🥷 status
-    line, which you reply with) or talkative (full summaries, the default). Kept per workspace."""
+    """Set the reply style: ninja (the default: run, build and live-control results come as one
+    🥷 status line, which you reply with) or talkative (full summaries). Kept per workspace."""
     state = _state(ctx)
     store_dir = state.config.store_dir
     if style is None:

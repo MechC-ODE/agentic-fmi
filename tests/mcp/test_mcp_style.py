@@ -1,23 +1,26 @@
 """Response styles through the in-memory MCP client: the ``response_style`` tool, its file in the
-store, and what the run, build and live-control tools return in ninja mode.
+store, and what the run, build and live-control tools return in ninja mode, the default.
 
 Collaborators: ``mcp_support.Session`` (the ``session`` fixture, and ``open_session`` for a second
 server on the same store), the ``fmu`` and ``workspace`` fixtures, and
 ``skills/fmu-authoring/examples/pi_controller.py`` (built by a real worker with pythonfmu, about a
-second). Runs are real workers; the session's cleanup stops any a test leaves.
+second). Runs are real workers; the session's cleanup stops any a test leaves. This module
+overrides the package's ``mcp_config`` (which stores talkative), so the store starts without
+``preferences.json`` and the default applies.
 """
 
 from __future__ import annotations
 
 import shutil
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pytest
-from mcp_support import Session, open_session
+from mcp_support import FAST_TIMING, Session, open_session
 
-from agentic_fmi.config import Config
+from agentic_fmi.config import Config, load_config
 from agentic_fmi.store import runstore
 
 BALL = "3.0/BouncingBall.fmu"
@@ -26,18 +29,28 @@ EXAMPLE = Path(__file__).resolve().parents[2] / "skills" / "fmu-authoring" / "ex
 NINJA_RULE = "reply with this line only; give details only if the user asks."
 
 
+@pytest.fixture
+def mcp_config(workspace: Path) -> Config:
+    """The server configuration with no stored style, so the default (ninja) applies."""
+    return replace(load_config(workspace), timing=FAST_TIMING)
+
+
 def _ninja(session: Session) -> None:
     assert session.ok("response_style", style="ninja")["style"] == "ninja"
+
+
+def _talkative(session: Session) -> None:
+    assert session.ok("response_style", style="talkative")["style"] == "talkative"
 
 
 def _preferences(session: Session) -> Path:
     return session.config.store_dir / runstore.PREFERENCES_FILE
 
 
-def test_the_default_is_talkative_and_the_tool_reports_it(session: Session) -> None:
+def test_the_default_is_ninja_and_the_tool_reports_it(session: Session) -> None:
     assert session.ok("response_style") == {
-        "style": "talkative",
-        "line": "Talkative mode on: full summaries.",
+        "style": "ninja",
+        "line": "🥷 Ninja mode on: status lines only.",
     }
     assert not _preferences(session).exists()  # asking writes nothing
 
@@ -45,18 +58,18 @@ def test_the_default_is_talkative_and_the_tool_reports_it(session: Session) -> N
 def test_the_style_is_set_reported_and_kept_in_the_store(
     session: Session, mcp_config: Config
 ) -> None:
-    assert session.ok("response_style", style="ninja") == {
-        "style": "ninja",
-        "line": "🥷 Ninja mode on: status lines only.",
+    assert session.ok("response_style", style="talkative") == {
+        "style": "talkative",
+        "line": "Talkative mode on: full summaries.",
     }
-    assert session.ok("response_style")["style"] == "ninja"
+    assert session.ok("response_style")["style"] == "talkative"
     assert _preferences(session).read_text(encoding="utf-8") == (
-        '{"protocol":1,"response_style":"ninja"}\n'
+        '{"protocol":1,"response_style":"talkative"}\n'
     )
     with open_session(mcp_config) as later:  # a new server on the same store keeps the choice
-        assert later.ok("response_style")["style"] == "ninja"
-        assert later.ok("response_style", style="talkative")["style"] == "talkative"
-    assert session.ok("response_style")["style"] == "talkative"
+        assert later.ok("response_style")["style"] == "talkative"
+        assert later.ok("response_style", style="ninja")["style"] == "ninja"
+    assert session.ok("response_style")["style"] == "ninja"
 
 
 def test_an_unknown_style_is_refused_by_the_schema(session: Session) -> None:
@@ -66,26 +79,28 @@ def test_an_unknown_style_is_refused_by_the_schema(session: Session) -> None:
 
 
 @pytest.mark.parametrize("text", ["{not json", '{"protocol":1,"response_style":"loud"}', ""])
-def test_a_corrupt_file_means_talkative_and_never_fails_a_tool(
+def test_a_corrupt_file_means_the_default_and_never_fails_a_tool(
     session: Session, fmu: FmuFactory, text: str
 ) -> None:
     fmu("3.0", "BouncingBall")
     _preferences(session).write_text(text, encoding="utf-8")
-    assert session.ok("response_style")["style"] == "talkative"
+    assert session.ok("response_style")["style"] == "ninja"
     view = session.ok("run_start", fmu=BALL, stop_time=1.0, wait_s=30)
-    assert view["state"] == "finished" and "summary" in view
-    assert session.ok("response_style", style="ninja")["style"] == "ninja"  # and it is repaired
+    assert view["state"] == "finished" and "summary" not in view
+    _talkative(session)  # and it is repaired
+    assert "summary" in session.ok("run_status", run_id=view["run_id"])
 
 
 def test_a_preferences_path_that_cannot_be_written_is_a_clear_error(session: Session) -> None:
     _preferences(session).mkdir()
-    assert session.ok("response_style")["style"] == "talkative"
-    message = session.error("response_style", style="ninja")
+    assert session.ok("response_style")["style"] == "ninja"
+    message = session.error("response_style", style="talkative")
     assert "File system problem" in message and "writable" in message
 
 
 def test_talkative_runs_keep_their_summary_and_hint(session: Session, fmu: FmuFactory) -> None:
     fmu("3.0", "BouncingBall")
+    _talkative(session)
     view = session.ok("run_start", fmu=BALL, stop_time=1.0, wait_s=30)
     assert view["state"] == "finished"
     assert view["summary"]["variables"], view
@@ -93,9 +108,10 @@ def test_talkative_runs_keep_their_summary_and_hint(session: Session, fmu: FmuFa
     assert session.ok("run_status", run_id="r1")["summary"] == view["summary"]
 
 
-def test_ninja_run_start_and_run_status_return_one_line(session: Session, fmu: FmuFactory) -> None:
+def test_ninja_run_start_and_run_status_return_one_line_by_default(
+    session: Session, fmu: FmuFactory
+) -> None:
     fmu("3.0", "BouncingBall")
-    _ninja(session)
     view = session.ok("run_start", fmu=BALL, stop_time=1.0, wait_s=30)
     assert view["state"] == "finished" and view["t"] == 1.0
     assert "summary" not in view and "build" not in view
@@ -114,6 +130,7 @@ def test_ninja_keeps_the_error_code_and_message_but_not_the_log_tail(
 ) -> None:
     fmu("3.0", "BouncingBall")
     bad: dict[str, Any] = {"fmu": BALL, "start_values": {"e": "abc"}, "stop_time": 1.0}
+    _talkative(session)
     talkative = session.ok("run_start", wait_s=30, **bad)
     assert talkative["state"] == "failed" and talkative["error"]["message"]
     _ninja(session)
@@ -157,6 +174,7 @@ def test_ninja_live_control_returns_status_lines_and_keeps_requested_values(
 def test_ninja_mode_does_not_soften_a_refusal(session: Session, fmu: FmuFactory) -> None:
     fmu("3.0", "BouncingBall")
     refused: dict[str, Any] = {"fmu": BALL, "start_values": {"ee": 0.5}}
+    _talkative(session)
     start_before = session.error("run_start", **refused)
     status_before = session.error("run_status", run_id="r99")
     assert "Close matches: e." in start_before and "Call run_list" in status_before

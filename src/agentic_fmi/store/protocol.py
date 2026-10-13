@@ -91,8 +91,8 @@ SetValue = bool | int | FiniteFloat
 """A live ``set`` value (ADR 0010): scalar Real, Integer, Enumeration or Boolean only (no
 String, Binary or arrays); ``live.settable`` converts it to the variable's type."""
 ResponseStyle = Literal["talkative", "ninja"]
-"""How Claude answers: ``talkative`` (full summaries, the default) or ``ninja`` (one status
-line)."""
+"""How Claude answers: ``ninja`` (one status line, the default) or ``talkative`` (full
+summaries)."""
 CommandAction = Literal["pause", "resume", "step", "set", "stop", "chart"]
 """What an inbox command asks the worker of a live run to do. ``chart`` (the pane's chart picker)
 is not a ``run_control`` action: the server refuses to send it."""
@@ -814,9 +814,9 @@ class Preferences(_Model):
 
     protocol: Literal[1] = PROTOCOL_VERSION
     response_style: ResponseStyle = Field(
-        default="talkative",
-        description="talkative: tool results carry summaries and Claude explains them. ninja: "
-        "run, build and live-control results carry a status line and Claude replies with it.",
+        default="ninja",
+        description="ninja: run, build and live-control results carry a status line and Claude "
+        "replies with it. talkative: tool results carry summaries and Claude explains them.",
     )
 
 
