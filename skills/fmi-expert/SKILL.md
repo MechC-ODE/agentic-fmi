@@ -1,11 +1,21 @@
 ---
 name: fmi-expert
-description: How to explore and simulate FMUs (Functional Mock-up Units, FMI 2.0 and 3.0) with the Agentic FMI tools. Use whenever the user mentions an FMU, a .fmu file, FMI, co-simulation or model exchange, a Modelica or exported dynamic model, or asks to inspect a model, change a parameter and re-simulate, compare simulation runs or plot results.
+description: How to explore and simulate FMUs (Functional Mock-up Units, FMI 2.0 and 3.0) with the Agentic FMI tools. Use whenever the user mentions an FMU, a .fmu file, FMI, co-simulation or model exchange, a Modelica or exported dynamic model, or asks to inspect a model, change a parameter and re-simulate, compare simulation runs or plot results, or asks for a simulation example or demo.
 ---
 
 # Working with FMUs
 
 The `fmi` MCP server runs FMUs in isolated worker processes and returns compact summaries and plots, never raw time series. Use its tools as described here. Details such as the input signals, limits and tool parameters are in [reference.md](reference.md). To create a new FMU from Python or Modelica source with `fmu_build`, see the [fmu-authoring skill](../fmu-authoring/SKILL.md). To connect FMUs into a system, write a JSON system file, check it with `system_check`, run it with `run_start(system=...)`, and convert SSP files with `system_import` and `system_export`; the [system-builder skill](../system-builder/SKILL.md) has the workflow. To steer a run while it runs, see [Live runs](#live-runs). For status-only replies, see [Response style](#response-style).
+
+## Examples, and nothing downloaded
+
+- **Never download or install anything on your own:** no FMUs or models from the web, no `pip` or `uv` installs, no new Python environments, no scripts that fetch files. The plugin manages its own environment, and the user's client may block such calls anyway. If something is missing, say what it is and where it would come from, and let the user decide.
+- **Asked for an example or a demo, with no FMU at hand?** Use the plugin's ready-made examples ([fmu-authoring](../fmu-authoring/SKILL.md#ready-made-examples)). They are tested and build in about a second, offline and without OpenModelica:
+  - One FMU: [bouncing_ball.py](../fmu-authoring/examples/bouncing_ball.py) (outputs `h` and `v`, tunable `e`).
+  - A closed loop: [pi_controller.py](../fmu-authoring/examples/pi_controller.py) and [MSD.py](../fmu-authoring/examples/MSD.py), wired by [loop.json](../system-builder/examples/loop.json) (copy it to the workspace root).
+
+  Read the file, Write it unchanged into the workspace's `models/`, `fmu_build` it, then run it. Don't write a model of your own for an example.
+- The Modelica Reference FMUs (BouncingBall, VanDerPol and others, used in the user guide) are a download from github.com/modelica/Reference-FMUs. Mention them if the user wants third-party FMUs; the user fetches them.
 
 ## FMI in one minute
 

@@ -9,7 +9,7 @@ You write the system file (JSON) with the Write tool; the tools check, run, expo
 
 ## The system file
 
-[examples/loop.json](examples/loop.json) closes the loop of the two `fmu-authoring` examples (PI controller `u` to plant `F`, plant `x` back to controller `y`):
+[examples/loop.json](examples/loop.json) closes the loop of the `fmu-authoring` examples (PI controller `u` to plant `F`, plant `x` back to controller `y`). The plant can be built from `MSD.mo` (Modelica) or from its Python twin `MSD.py` (no OpenModelica needed); both become `generated/MSD/MSD.fmu` and give the same results:
 
 ```json
 {

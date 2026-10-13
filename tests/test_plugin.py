@@ -237,3 +237,34 @@ def test_the_ssv_snippet_in_the_skill_parses() -> None:
 def test_fmi_expert_points_to_the_system_builder_skill() -> None:
     text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
     assert "(../system-builder/SKILL.md)" in text
+
+
+SKILL_FILES = sorted((ROOT / "skills").glob("*/*.md"))
+EXAMPLE_SOURCES = ("bouncing_ball.py", "pi_controller.py", "MSD.mo", "MSD.py")
+
+
+@pytest.mark.parametrize("path", SKILL_FILES, ids=lambda path: f"{path.parent.name}/{path.name}")
+def test_every_relative_link_in_a_skill_resolves(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    for target in re.findall(r"\]\(([^)#\s]+)(?:#[^)]*)?\)", text):
+        if not target.startswith(("http://", "https://")):
+            assert (path.parent / target).exists(), f"{path.name} links to missing {target}"
+
+
+def test_fmi_expert_forbids_downloads_and_points_to_the_ready_made_examples() -> None:
+    """A user who asks for an example gets a bundled one, built offline, never a download."""
+    text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    assert "Never download or install anything on your own" in text
+    for source in ("bouncing_ball.py", "pi_controller.py", "MSD.py"):
+        assert f"(../fmu-authoring/examples/{source})" in text
+    assert "example or demo" in text.split("---")[1]
+
+
+def test_the_authoring_skill_lists_every_bundled_example() -> None:
+    examples = ROOT / "skills" / "fmu-authoring" / "examples"
+    text = (examples.parent / "SKILL.md").read_text(encoding="utf-8")
+    assert sorted(p.name for p in examples.iterdir() if p.suffix in (".py", ".mo")) == sorted(
+        EXAMPLE_SOURCES
+    )
+    for source in EXAMPLE_SOURCES:
+        assert f"(examples/{source})" in text
