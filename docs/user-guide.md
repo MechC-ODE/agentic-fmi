@@ -2,7 +2,11 @@
 
 This guide walks through what you can ask Claude to do with Agentic FMI, one task at a time. Each section gives prompts to type and what to expect back. Install first with the [Quick start in the README](../README.md#quick-start), then start Claude Code in the folder that holds your FMUs.
 
-Claude picks the tools by itself; you never need to name them. The examples use the free [Reference FMUs](https://github.com/modelica/Reference-FMUs) (BouncingBall, VanDerPol, …) and the two example models that ship with the plugin.
+Claude picks the tools by itself; you never need to name them. The examples use the free [Reference FMUs](https://github.com/modelica/Reference-FMUs) (BouncingBall, VanDerPol, …) and the example models that ship with the plugin.
+
+**No FMUs yet?** Ask "show me an example". Claude builds a ready-made model that ships with the plugin (a bouncing ball, or a controller and a plant for a closed loop) in about a second and runs it. Nothing is downloaded or installed unless you ask for it.
+
+**Short replies by default.** Runs, builds and live steps are answered with one status line ([ninja mode](#6-ninja-or-talkative-replies)). The screenshots below were taken in talkative mode, where Claude explains every result: say "talkative mode" to get the same.
 
 ## Contents
 
@@ -11,7 +15,7 @@ Claude picks the tools by itself; you never need to name them. The examples use 
 3. [Create FMUs from Python or Modelica](#3-create-fmus-from-python-or-modelica)
 4. [Connect FMUs into a system](#4-connect-fmus-into-a-system)
 5. [Control a run live and watch it in the pane](#5-control-a-run-live-and-watch-it-in-the-pane)
-6. [Talkative or ninja replies](#6-talkative-or-ninja-replies)
+6. [Ninja or talkative replies](#6-ninja-or-talkative-replies)
 7. [Good to know](#7-good-to-know)
 
 ## 1. Explore FMUs
@@ -126,13 +130,15 @@ Type **`/fmi`** to open the pane next to the conversation (it needs the `agentic
 
 The pane and Claude steer the same run, so you can press Pause in the pane and ask Claude what happened. A status line under the prompt and short notifications follow the runs even while the pane is closed.
 
-## 6. Talkative or ninja replies
+## 6. Ninja or talkative replies
 
-By default Claude explains results (talkative). If you just want to know that runs started and finished, say:
+By default replies are short (ninja mode): run, build and live-control replies are one line, such as `🥷 r12 done: BouncingBall, t=3 s.` or `🥷 r12 failed: simulation_error.` Ask a question ("what was the maximum height?") and you get a short answer with the numbers.
 
-> Ninja mode.
+To have Claude explain every result, with summaries, comparisons and suggested next steps, say:
 
-From then on, run, build and live-control replies are one line, such as `🥷 r12 done: BouncingBall, t=3 s.` or `🥷 r12 failed: simulation_error.` Ask a question ("what was the maximum height?") and you get a short answer with the numbers. Say "talkative mode" to switch back. The choice is kept for the workspace.
+> Talkative mode.
+
+Say "ninja mode" to switch back. The choice is kept for the workspace.
 
 <p align="center"><img src="images/ninja-mode.png" alt="Ninja mode: one status line per request" width="520"></p>
 

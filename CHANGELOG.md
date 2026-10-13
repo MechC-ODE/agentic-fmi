@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Ready-made examples** that build offline in about a second: a Python bouncing ball, and `MSD.py`, a Python twin of the mass-spring-damper plant, so the example closed loop also runs without OpenModelica. Claude builds them when you ask for an example.
+
+### Changed
+
+- **Ninja mode is the default.** Run, build and live-control replies are one status line; say "talkative mode" for full explanations.
+- Claude never downloads or installs anything on its own (FMUs, packages, environments). It says what is missing and asks.
+
+### Fixed
+
+- The plugin keeps uv's cache next to its Python environment, so uv links the packages instead of copying the whole environment (about 400 MB) and warning "Failed to hardlink files".
+
 ## [0.1.0] - 2026-10-12
 
 First public release.
