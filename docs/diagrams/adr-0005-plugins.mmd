@@ -1,0 +1,11 @@
+flowchart LR
+    subgraph core["agentic-fmi, the core plugin"]
+        mcp["MCP server and skills<br/>works in any MCP client"]
+    end
+    subgraph panep["agentic-fmi-pane, optional"]
+        pane["/fmi pane<br/>Claude Code early-access mod API"]:::early
+    end
+    store[("Run store files")]
+    mcp <-->|"runs, results"| store
+    pane -->|"reads files,<br/>writes command files"| store
+    classDef early fill:#fff8dc,stroke:#c9b458

@@ -1,0 +1,18 @@
+flowchart LR
+    server["MCP server"]
+    pane["Pane"]
+    worker["Worker"]
+    index["index.json, events.jsonl"]
+    spec["runs/r7/spec.json"]
+    cmds["runs/r7/commands/<br/>one new file per command"]
+    status["runs/r7/status.json<br/>live.json, log.txt"]
+    results["runs/r7/result.csv<br/>summary.json, plots/"]
+    outs["runs/r7/outcomes/<br/>one answer per command"]
+    server -->|"writes"| index
+    server -->|"writes"| spec
+    server -->|"writes"| cmds
+    pane -->|"writes"| cmds
+    worker -->|"writes"| status
+    worker -->|"writes"| results
+    worker -->|"writes"| outs
+    server -.->|"queued, and failed<br/>after a lost worker"| status

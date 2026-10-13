@@ -1,35 +1,46 @@
 # 0004. OMSimulator as the multi-FMU orchestrator
 
-- Status: Accepted (spike (c) passed; evidence in [spikes.md](../spikes.md)). Partly superseded by [0009](0009-systems-with-omsimulator.md): there is no `Instance` protocol (each engine is one `simulate(spec, dir, gate)` function), OMSimulator is a core dependency pinned by its installed tree, and the worker uses `doStep` with the result file off.
-- Date: 2026-10-09
+**Status:** Accepted, partly superseded by [0009](0009-systems-with-omsimulator.md) · **Date:** 2026-10-09
 
-## Context
+> **Changed by 0009:** no `Instance` protocol (each engine is one function); OMSimulator is a core dependency pinned by a hash of its files; the worker steps with `doStep` and the result file off.
 
-Systems of FMUs, such as a controller plus a plant, need a master algorithm that handles connections, step coordination and SSP import and export. The options were:
+## Problem
 
-- **OMSimulator 3.** It's SSP-native, has a Python API and installs with pip.
-- **FMPy container FMUs** (`fmpy.container_fmu.cli.create_container_fmu`). These wrap FMUs into one co-simulation FMU, which the FMPy engine can step, but they have no SSP.
-- **Our own master algorithm.** Rejected as scope creep.
-
-The open question was whether OMSimulator 3 can advance a system step by step, which live sessions need (step, pause, set). The online docs for v3.0.0.post199 show no `stepUntil`.
+Connected FMUs, such as a controller and a plant, need a master algorithm that wires them, coordinates their steps and imports and exports SSP. Live runs also need to step a system one step at a time.
 
 ## Decision
 
-- OMSimulator 3 is the multi-FMU orchestrator, used through the `oms` extra and locked exactly (`OMSimulator==3.0.0.post198`).
-- It sits behind the `Engine`/`Instance` protocol in `engines/oms_engine.py`, and `Instance` can require `step` from it.
-- FMPy stays the single-FMU engine.
+OMSimulator 3 runs connected FMUs, pinned exactly (`3.0.0.post198`); FMPy keeps running single FMUs. Both sit behind one engine seam. Spike (c) confirmed OMSimulator 3 can step a system and set values between steps.
 
-Spike (c) showed that 3.0.0.post198 steps, so none of the planned fallbacks is needed. There's no legacy `OMSimulator` class in this version, and the FMPy container route stays out of the critical path (spike (d) is only partial).
-- **High level:** `inst = SSP(path).instantiate()`, then `setResultFile`, `setValue(CRef(...), v)`, `initialize()`, then any mix of `stepUntil(t)`, `doStep()`, `setValue`, `getValue` and `getTime()`, then `terminate()` and `delete()`.
-- **Low level:** `from OMSimulator import Capi` wraps the native `oms_*` calls.
+![The worker sends a single FMU to FMPy and connected FMUs to OMSimulator 3. Both expose simulate(spec, dir, gate) and return the same EngineResult, so results, summaries, plots and comparisons are shared.](../diagrams/adr-0004-engines.svg)
 
-## Consequences
+## Options considered
 
-- (+) Standard SSP and SSV import and export, so systems are portable to other tools.
-- (+) One engine seam with two real implementations, and shared contract tests.
-- (+) Live systems and batch systems use the same engine.
-- (-) OMSimulator 3 changes quickly. We pin it exactly and the contract tests catch drift.
-- (-) Run OMSimulator only inside worker processes, one model per process ([ADR 0002](0002-isolated-worker-process-per-run.md)). `InstantiatedModel` hard-codes the model name, a second `instantiate()` fails, it logs `info:` and `warning:` lines to stdout, and `Capi.getResultFileSignals` segfaults (never call it).
-- (-) For FMI 3.0 systems the worker must call `removeSignalsFromResults(".*Binary.*")` before `initialize()`. Otherwise the result file has 0 rows and every step is about 50 times slower.
-- (-) The PyPI sdist downloads an unhashed nightly tarball from `build.openmodelica.org` at build time, with `requests.get(..., verify=False)`. `uv.lock` doesn't cover the binary, so the exact version pin is the only control, the first install needs network access, and the binary isn't hash-verified. This is an accepted risk to revisit: record the binary's sha256 at install time, or vendor a wheel.
-- (-) pythonfmu FMUs run inside OMSimulator and FMPy (both Python hosts) without `LD_PRELOAD`, because the FMU bundles its own `pythonfmu` under `resources/`. Only non-Python hosts need `LD_PRELOAD` of libpython (spike (e)).
+| Option | Verdict | Why |
+|---|---|---|
+| **OMSimulator 3** | Chosen | SSP-native, Python API, can step |
+| FMPy container FMUs | Rejected | No SSP; spike (d) only partly worked |
+| Our own master algorithm | Rejected | Scope creep |
+
+## Trade-offs
+
+**Gains**
+- Standard SSP and SSV exchange with other tools.
+- One engine seam, two real implementations, shared contract tests.
+
+**Costs, and how we handle them**
+- OMSimulator changes quickly: exact pin plus contract tests.
+- It prints to stdout and allows one model per process, so it runs only in workers.
+- Its source package downloads an unhashed binary; [0009](0009-systems-with-omsimulator.md) pins the installed files.
+
+<details>
+<summary><b>Details:</b> the API spike (c) confirmed, and known pitfalls</summary>
+
+- **High level:** `inst = SSP(path).instantiate()`, then `setResultFile`, `setValue(CRef(...), v)`, `initialize()`, then any mix of `stepUntil(t)`, `doStep()`, `setValue`, `getValue` and `getTime()`, then `terminate()` and `delete()`. There is no legacy `OMSimulator` class in this version.
+- **Low level:** `from OMSimulator import Capi` wraps the native `oms_*` calls. Never call `Capi.getResultFileSignals`: it segfaults.
+- **One model per process:** `InstantiatedModel` hard-codes the model name, so a second `instantiate()` fails.
+- **FMI 3.0 Binary signals** in the result file leave it empty and make every step about 50 times slower ([0009](0009-systems-with-omsimulator.md) turns the result file off).
+- **The PyPI source package** downloads a nightly tarball from `build.openmodelica.org` with `verify=False`, so `uv.lock` doesn't cover the binary.
+- **pythonfmu FMUs** run in OMSimulator and FMPy without `LD_PRELOAD`, because the FMU bundles its own `pythonfmu`; only hosts that aren't Python need `LD_PRELOAD` of libpython (spike (e)).
+
+</details>

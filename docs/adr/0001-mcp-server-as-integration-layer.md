@@ -1,48 +1,50 @@
 # 0001. MCP server as the integration layer
 
-- Status: Accepted
-- Date: 2026-10-09
+**Status:** Accepted · **Date:** 2026-10-09
 
-## Context
+## Problem
 
-Claude needs to operate FMUs: inspect, run, control, compose and generate them. The mature FMI tooling is Python (FMPy, the OMSimulator Python API, pythonfmu). The options were:
-
-- **Tools registered by a Claude Code mod.** This is TypeScript, tied to Claude Code and on an early-access API, and it would still need to call Python.
-- **A custom app** wrapping the Claude API. It would rebuild the chat, permissions and UI that Claude Code already provides.
-- **Skills plus Bash scripts only.** This produces untyped, verbose output, and native code would run in the shell session.
-- **An MCP server.** MCP is the standard tool protocol supported by Claude Code, Claude Desktop and other clients. Prior art (`mcp-fmi`) shows the fit, though it covers only single-FMU basics.
+Claude has to inspect, run, build and connect FMUs, and the mature FMI libraries are Python (FMPy, OMSimulator, pythonfmu). Claude needs typed tools with small answers that aren't tied to one app.
 
 ## Decision
 
-The integration layer is a Python MCP server, `afmi mcp`, built on the MCP Python SDK v2:
-- It runs over stdio and is launched by the `mcpServers` entry in the core plugin's `.claude-plugin/plugin.json` (not a root `.mcp.json`, which Claude Code would also read as project config when the repo is opened).
-- Tool functions are thin adapters over core functions, with typed inputs and outputs from pydantic models.
-- Results are compact JSON plus optional PNG images. Errors meant for the model are raised as `ToolError` with actionable text. The `ToolError` import path in MCP SDK 2.x was confirmed against mcp 2.3.0 (below).
-- Long jobs use start and poll tools (`run_start` with `wait_s`, then `run_status`).
+A Python MCP server, `afmi mcp`, started by the core plugin over stdio, gives Claude its FMI tools.
 
-## Consequences
+- Each tool is a thin, typed adapter over a core function.
+- Results are compact JSON or a PNG plot. Errors are `ToolError`s that say what to do next.
+- Long jobs are started, then polled.
 
-- (+) The server is portable to Claude Desktop and other MCP clients. Only the pane is Claude Code specific.
-- (+) It stays in the Python ecosystem, next to FMPy and OMSimulator. Schemas come from pydantic, and tools can be tested in-process with the SDK client.
-- (-) Tool output is the only channel to the model, so it needs an output size budget (principle 2).
-- (-) Stdout belongs to the MCP protocol. Anything that might print, including FMU native code, must run elsewhere ([ADR 0002](0002-isolated-worker-process-per-run.md)).
-- (-) The server can't push to the model, so live updates reach the user through the pane ([ADR 0005](0005-pane-as-separate-early-access-plugin.md)).
+![Any MCP client calls the Agentic FMI MCP server over stdio; the server starts runs and builds that use FMPy, OMSimulator and pythonfmu inside workers.](../diagrams/adr-0001-integration.svg)
 
-## Verification (mcp 2.3.0)
+## Options considered
 
-The open item above was checked with an in-memory `Client` and a real stdio subprocess. The decision is unchanged.
-- **Imports:**
-  - `from mcp.server import MCPServer`
-  - `from mcp.server.mcpserver import Context, Image`
-  - `from mcp.server.mcpserver.exceptions import ToolError`
-  - `from mcp import Client, StdioServerParameters`
-  - `from mcp.types import CallToolResult, TextContent, ImageContent, ToolAnnotations`
-- **Errors:** A `ToolError("msg")` reaches the model as `is_error=True` with the text `Error executing tool <name>: msg`. Any other exception shows only `Error executing tool <name>`, and the traceback is logged to stderr.
-- **Return types:**
-  - A pydantic return type gives indented JSON text plus `structured_content` and an `outputSchema`. Returning `Annotated[CallToolResult, Model]` keeps the schema and lets us send minified JSON. We use this for the output budget.
-  - Returning `Image(data=png, format="png")` gives `image/png` content, no structured content and no output schema.
-- **Lifespan:** `MCPServer(name, lifespan=...)`, where the lifespan is an async context manager that yields the app state. Tools read the state through `ctx.request_context.lifespan_context`, and the in-memory `Client` runs the lifespan too.
-- **Running:**
-  - Sync tools run on worker threads.
-  - `server.run("stdio")` blocks until the client disconnects.
-  - While serving, stdio points fd 1 at stderr and fd 0 at `/dev/null`, so prints from tools and child processes miss the wire. Output printed before `run()` corrupts it.
+| Option | Verdict | Why |
+|---|---|---|
+| **MCP server in Python** | Chosen | Standard protocol, next to the FMI libraries |
+| Tools in a Claude Code mod | Rejected | Early-access TypeScript API that would still call Python |
+| A custom app on the Claude API | Rejected | Rebuilds what Claude Code already has |
+| Skills plus Bash scripts | Rejected | Untyped output; FMU code would run in the shell |
+
+## Trade-offs
+
+**Gains**
+- Works in Claude Desktop and other MCP clients; only the pane is Claude Code specific.
+- Schemas come from pydantic, and tools are testable in-process.
+
+**Costs, and how we handle them**
+- Tool output is Claude's only view, so tools return summaries and plots, never raw data.
+- Stdout belongs to the protocol, so FMU code runs in workers ([0002](0002-isolated-worker-process-per-run.md)).
+- The server can't push updates; the pane shows live progress ([0005](0005-pane-as-separate-early-access-plugin.md)).
+
+<details>
+<summary><b>Details:</b> launch, and the MCP SDK 2.3 behaviour the server relies on</summary>
+
+- **Launch.** The `mcpServers` entry in `.claude-plugin/plugin.json` starts the server, not a root `.mcp.json`, which Claude Code would also read as project configuration when the repository is opened.
+- **Imports** (checked against mcp 2.3.0): `from mcp.server import MCPServer`, `from mcp.server.mcpserver import Context, Image`, `from mcp.server.mcpserver.exceptions import ToolError`, `from mcp import Client, StdioServerParameters`, `from mcp.types import CallToolResult, TextContent, ImageContent, ToolAnnotations`.
+- **Errors.** A `ToolError("msg")` reaches Claude as `is_error=True` with `Error executing tool <name>: msg`. Any other exception shows only `Error executing tool <name>`; its traceback goes to stderr.
+- **Return types.** A pydantic return type gives indented JSON plus `structured_content` and an `outputSchema`. `Annotated[CallToolResult, Model]` keeps the schema and sends minified JSON, which the output budget uses. `Image(data=png, format="png")` gives `image/png` content without a schema.
+- **Long jobs.** `run_start` waits up to `wait_s`; `run_status` takes over after that.
+- **Lifespan.** `MCPServer(name, lifespan=...)` takes an async context manager that yields the app state; tools read it through `ctx.request_context.lifespan_context`. The in-memory `Client` runs the lifespan too.
+- **Running.** Sync tools run on worker threads. While serving stdio, fd 1 points at stderr and fd 0 at `/dev/null`, so prints from tools and child processes miss the wire; anything printed before `run()` corrupts it.
+
+</details>

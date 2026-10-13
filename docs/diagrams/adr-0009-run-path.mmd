@@ -1,0 +1,9 @@
+flowchart LR
+    sspin[".ssp from another tool"] -->|"system_import<br/>safe zip reader"| sys["System file (JSON)<br/>written by Claude or imported"]
+    ssv[".ssv parameter set"] -->|"paramset"| spec
+    sys -->|"run_start(system)"| spec["SystemSpec<br/>FMU hashes, parameters,<br/>step h, OMSimulator pin"]
+    spec --> worker["Worker builds the model<br/>through the OMSimulator API"]
+    sys -->|"system_export"| sspout[".ssp, byte-identical<br/>on every export"]
+    note["SSP files never reach the worker"]:::note
+    note -.- worker
+    classDef note fill:#fff8dc,stroke:#c9b458

@@ -1,55 +1,78 @@
 # 0009. Systems with OMSimulator: one run path, SSP and SSV as exchange formats, a pinned install
 
-- Status: Accepted. Amended by [0010](0010-live-runs-and-the-pane.md): the gate is `gate(t, live)` with a `Live` handle (`get`, `set`) that both engines implement, live specs gate once at the start time, and the engines report discard and terminate the same way.
-- Date: 2026-10-10
+**Status:** Accepted, amended by [0010](0010-live-runs-and-the-pane.md) · **Date:** 2026-10-10
 
-## Context
+> **Changed by 0010:** the gate becomes `gate(t, live)` with a `Live` handle (`get`, `set`) in both engines; live specs gate once at the start time; both engines report discarded and terminated steps alike.
 
-Claude connects FMUs into systems (a controller and a plant in a closed loop), with full SSP and SSV import and export. The facts that shape the design come from spikes (c), (g) and (h), all on OMSimulator 3.0.0.post198:
-- OMSimulator's `oms_ma` master couples Jacobi-style: every component steps from the same communication point with the inputs of the previous exchange. The step h changes a loop's dynamics (Kp=10, Ki=15: 10.42 % overshoot at h = 0.01, 7.88 % at 1 ms (measured through the real engine; 7.84 % is the sampled-data model's value), 7.56 % continuous; unstable at h = 0.1).
-- `stepUntil(t)` can overshoot by one step. `doStep()` then `getValue()` returns **post-exchange** values (a connected input equals its source output; probe: difference 0.0), and with two pythonfmu FMUs in one process the result equals the exact zero-order-hold Jacobi recurrence to 2.4e-15.
-- Unless `setResultFile("")` is called after `instantiate()`, OMSimulator writes `default_res.mat` into the process's working directory; `removeSignalsFromResults(".*")` alone doesn't stop it. With the file off, FMI 3.0 Binary variables no longer slow every step 50-fold.
-- `import OMSimulator` loads `libOMSimulator.so`, which logs to stdout. One model per process. Each `instantiate()` leaks a `mkdtemp()` directory under `TMPDIR`.
-- Exports from OMSimulator aren't byte-reproducible, and a component-level SSV next to an inline binding is lost on re-export. OMSimulator applies component-level bindings after system-level ones, while SSP 1.0 section 5.2.3 says the higher level wins.
-- The PyPI sdist downloads its binaries and Python code without a hash. The plugin launcher syncs without extras, so a plugin install got no OMSimulator at all (a bug).
-- `tools/list` was 25.4 KB against a 26 KB cap; the cap was raised to about 32 KB so systems get dedicated tools.
+## Problem
 
-Options considered: running user SSPs in the worker with `SSP(path)` (rejected: two run paths, untrusted XML in the worker, OMSimulator's export bugs); a `system_define` tool that writes files (rejected: Claude writes files with its own tools); an `Engine` class with an `Instance` protocol (rejected: two plain functions with one signature suffice).
+Claude connects FMUs into systems and exchanges them with other tools as SSP (systems) and SSV (parameter sets). The spikes on OMSimulator 3.0.0.post198 found four obstacles:
+
+- **The step size changes the answer.** Components exchange values once per step (Jacobi coupling), which adds up to one step of delay around a loop. The chart shows one PI loop at three step sizes; at 100 ms it goes unstable.
+- **OMSimulator's own SSP handling is unreliable:** exports aren't reproducible, parameter precedence is reversed, and running users' SSP files would put untrusted XML in the worker.
+- **The install is unverified:** its source package downloads binaries without a hash, and plugin installs got no OMSimulator at all.
+- **Side effects:** a result file in the working directory unless turned off, logs on stdout, one model per process.
+
+![PI loop overshoot by communication step h: 10.42 % at h = 10 ms, 7.88 % at h = 1 ms, 7.56 % in continuous time. At h = 100 ms the loop is unstable.](../diagrams/adr-0009-step-size.svg)
 
 ## Decision
 
-**System file v1 (JSON), written by Claude.** `{"version": 1, "components": {name: {"fmu", "parameters"}}, "connections": [{"from", "to"}], "experiment": {"start_time", "stop_time", "step_size"}}`. Unknown keys are refused; at most 256 KiB; component names `^[A-Za-z_][A-Za-z0-9_]{0,63}$`; `<component>.<variable>` splits at the first dot; FMU paths are relative to the system file's directory and resolve, symlinks included, inside the allowed roots; `step_size` is required. No `outputs`: `run_start` picks them (default: every component's outputs). The JSON Schema is committed as `docs/schemas/system-file.schema.json` with a drift test. `system.py` holds the model, the checks (reusing `fmu/inspect.py`) and the parameter layers.
+- **One run path.** Claude writes a JSON system file (or imports one). `run_start(system=...)` resolves it into a `SystemSpec`, and the worker builds the model through OMSimulator's API, stepping with `doStep()`, with the result file off. Results match FMPy's, so plots and comparisons are shared.
+- **SSP and SSV are exchange formats, handled by the server, never by OMSimulator.** `system_import` reads a flat `.ssp` safely; `system_export` writes a byte-identical `.ssp`; parameter sets are `.ssv` files.
+- **A pinned install.** OMSimulator is a core dependency, pinned by a hash of its installed files; server and worker refuse a changed install.
+- **Engine seam:** each engine is one function, `simulate(spec, directory, gate)`.
+- **Three tools:** `system_check`, `system_import`, `system_export`. The `tools/list` cap rises from 26,000 to 32,000 bytes.
 
-**One way to run.** `run_start(system=..., paramset=...)` (exactly one of `fmu` and `system`; `fmu` becomes optional) resolves everything into a `SystemSpec` (`kind: "system"`): FMU refs with sha256, connections, parameters with the layer that set each one (FMU start < system file < `.ssv` paramset < `start_values` keyed `PI.Kp`), the master (`oms_ma`, Jacobi, step h), the experiment and the OMSimulator identity. For systems `output_interval` is h; `inputs`, `fmi_type`, `solver` and `relative_tolerance` are refused. The worker verifies the pin, copies each FMU into `work/fmus/` while hashing it, sets `TMPDIR` to `work/tmp`, imports `engines/oms_engine.py` lazily and builds the model through the API (`addResource`, `addComponent`, `addConnection`, a fixed-step solver, `setValue` before `initialize()`). It steps with `doStep()` only and reads `getValue()` after each step; the result file is off. Results are the same `EngineResult` as FMPy's, so `result.csv`, summaries, `run_results`, `run_plot` and `run_compare` are shared. A test-only check loads our exports with `SSP(path)` in a child process and compares the results.
+![A .ssp from another tool goes through system_import, a safe zip reader, into a system file (JSON), which Claude can also write. run_start(system) turns the system file, plus an optional .ssv parameter set, into a SystemSpec with FMU hashes, parameters, step h and the OMSimulator pin. The worker builds the model through the OMSimulator API. system_export writes a .ssp that is byte-identical on every export. SSP files never reach the worker.](../diagrams/adr-0009-run-path.svg)
 
-**Engine seam.** `engines/base.py` holds `Gate`, `EngineResult`, `TIME_COLUMN` and two helpers. Each engine is one function `simulate(spec, directory, gate)`; `worker.py` dispatches on `kind`. Shared contract tests run both engines through real workers: finish, stop (partial result, clean terminate), column order and units, error as `simulation_error`. There is no `Engine` class and no `Instance` protocol.
+Parameters come in layers; a later layer wins: **FMU start values → system file → `.ssv` parameter set → `start_values` in `run_start`**.
 
-**SSP and SSV are exchange formats, handled by the server (`ssp.py`), never by OMSimulator.** `system_import(source, name?)` reads a flat `.ssp` into `imported/<name>/<name>.json` (see Consequences; first `system.json`) plus private FMU copies `imported/<name>/<component>.fmu`; SSV values become component parameters, with SSP 1.0 precedence and a warning per overridden value. It is safe by construction: it reads only members the SSD references, through `ZipFile.open` with streamed per-member and total caps; it refuses more than 1000 entries, duplicate names, encryption, other compressions, absolute, `..`, backslash or URI references, `sourceBase="component"` and any DOCTYPE (lxml with no entities, DTD or network); it names outputs from its own grammar, stages them and renames once, and never replaces. Nested systems, SSM parameter mappings, signal dictionaries, system-level connectors and connection transformations are refused by name. `system_export(system, dest, paramset?)` writes a new `.ssp` that is byte-identical on repeat: sorted entries, fixed timestamps, no `generationDateAndTime`, FMUs stored once each, one root-level `resources/parameters.ssv` (system < paramset), the step as OMSimulator's annotation, and each FMU's sha256 in an `org.agentic-fmi` annotation. The probe validated this shape against OMSimulator's bundled XSDs and re-imported it with identical results. Parameter sets are `.ssv` files only, read by the same parser.
+> **Review rule for `ssp.py`:** no zip member name ever reaches a filesystem path. The import reads only members the SSD references, through `ZipFile.open`, and names every file it writes itself. Any change that extracts a member under its archive name needs a new security review.
 
-**OMSimulator is a core dependency, pinned by its installed tree.** `pyproject.toml` requires `OMSimulator==3.0.0.post198` (the `oms` extra is gone; the `oms` test marker stays as a category). `oms_pin.py`, outside `engines/`, hashes the installed `OMSimulator/` tree (sorted relative paths plus each file's sha256, `__pycache__` skipped) without importing it and reads the version from package metadata. The pin lives in one constant, `config.OMSIMULATOR_PIN`. The server refuses a system run on a mismatch and prints both digests; the worker re-checks before `import OMSimulator` and fails closed with the new error code `oms_changed`. This detects a changed install; it doesn't prove where the bytes came from (no apt route). Ruff TID251 bans `OMSimulator` imports outside `engines/`.
+## Options considered
 
-**Protocol (additive, still v1).** `SystemSpec` and its parts, `ErrorCode.OMS_CHANGED`, `kind: "system"` in `IndexEntry`, `RunView` and `RunListItem`. `RunSpec` and `RunSummary` are unchanged.
+| Option | Verdict | Why |
+|---|---|---|
+| **Build the model from our own system file** | Chosen | One run path; untrusted XML never reaches the worker |
+| Run users' SSP files with `SSP(path)` | Rejected | Two run paths, untrusted XML, OMSimulator's SSP bugs |
+| A `system_define` tool | Rejected | Claude writes files itself, in view of the user |
+| An `Engine` class and `Instance` protocol | Rejected | Two plain functions are enough |
 
-**Budget.** Three dedicated tools: `system_check(system)`, `system_import(source, name?)` and `system_export(system, dest, paramset?)`, with published output schemas. Measured `tools/list`: 29,460 bytes for 16 tools (25.4 KB before). The test cap goes from 26,000 to 32,000 bytes.
+## Trade-offs
 
-## Consequences
+**Gains**
+- Every system run is reproducible from its `spec.json`, and the pane draws its diagram from it.
+- Untrusted SSP files never reach OMSimulator; exports are reproducible.
+- Plugin installs get OMSimulator, and a changed install is caught before any FMU runs.
 
-- (+) One run path: every system run is reproducible from `spec.json` alone, and the pane can draw the diagram from it without parsing XML.
-- (+) Untrusted SSPs never reach the worker or OMSimulator; exports are portable and reproducible.
-- (+) Plugin installs now get OMSimulator. A changed install is caught before any FMU code runs.
-- (-) The pin matches the Ubuntu 24.04 tarball the sdist fetched here. Another distribution (the sdist picks a `focal` tarball), or a replaced nightly, fails the pin until someone reviews it and updates `OMSIMULATOR_PIN`.
-- (-) The first plugin start builds the sdist, which downloads the tarball without TLS verification. `development.md` documents a pre-sync (`uv sync --locked` before the first start), so this happens once and under the user's eyes.
-- (-) Sampled values are post-exchange: a row's inputs already hold that row's outputs. Jacobi coupling adds up to a step of delay around a loop, so h must be chosen consciously.
-- (-) Gauss-Seidel coupling, variable-step or SC masters, ME-only components, input signals for systems, nested systems, SSM, signal dictionaries, unit conversion and algebraic-loop detection are out of scope.
-- (-) The FMU of a pythonfmu component imports its slave module into the worker's interpreter. Two different FMUs with the same module name are refused by `system_check`.
-- (-) Found while building the engine (spike (h)): OMSimulator 3.0.0.post198 starts the clock at 0 whatever the start time, so system runs start at 0 (the engine refuses anything else). A discarded step stalls the clock without an error, so the engine fails a step that makes no progress. A pythonfmu slave that raises aborts the worker inside OMSimulator; the run ends as `worker_lost` with the abort in `log_tail`, where FMPy would report `simulation_error`.
-- (-) `tools/list` is closer to its cap.
-- Settled while building `ssp.py`:
-  - The imported system file is `imported/<name>/<name>.json`, so its stem (the system's name in `spec.json`, `run_list` and `run_compare`) is the import name rather than `system` for every import (a binding rule of the brief).
-  - `zipfile` parses the whole central directory before any entry count can be checked, so the import first reads the end-of-central-directory record and refuses more than 1000 declared entries or a directory above 1 KiB per permitted entry; the count is checked again after opening, because `zipfile` ignores the declared one. `ZipExtFile` already stops at the declared size and checks the CRC; the import adds its own caps on the decompressed bytes and a size check at the end of each stream.
-  - The import stages the system, runs `system.problems` on it in the staging directory and passes errors and warnings on as at most five warnings with a hint; a system with errors is still imported, so it can be fixed with `system_check`. A missing stop time becomes `start + config.SYSTEM_DEFAULT_STOP_S` (1 s) with a warning, as a missing step does. Root-level SSV names that name no component are ignored with one warning; `ssv:Enumeration` item names become the item's integer value where the FMU declares it; an SSV unit that differs from the FMU's is kept with a warning (the system file has no units). Renaming the staging directory replaces nothing but an empty directory created in the instant before (Linux `rename`), which holds no data.
-  - The export writes SSD version 1.0, or 2.0 when a component needs an FMI 3.0 connector type (`Float64`, `Int32`, ...) or a connector kind SSP 1.0.1 lacks (it allows only `input`, `output`, `parameter`, `calculatedParameter` and `inout`; a state a system file sets with initial exact is written as `local`); both validate against OMSimulator's bundled XSD. Enumerations travel as `Integer` (OMSimulator reads `ssv:Enumeration` as an integer, the standard as an item name), and no units are written (they would need `ssc:Units` definitions). The SSD lists every scalar input, output and parameter connector plus every variable the SSV sets.
-- Review rule for `ssp.py` (the condition for the import to be safe by construction): **no zip member name ever reaches a filesystem path.** The import reads members only by names the SSD references, through `ZipFile.open`, and every file or directory it writes is named by our own grammar (the import name, `<component>.fmu`, `<name>.json`). A change that extracts a member under its archive name (`extract`, `extractall`, or a member name joined into a path) breaks the rule and needs a new review.
-- Residual exposure, not introduced here: FMPy unpacks an FMU's `modelDescription.xml` (`fmu_inspect`, `system_check`, `run_start`, and `system_import` on the embedded FMUs) without a size cap, so a hostile FMU can make the server read a very large XML. The streamed caps of this ADR cover what `ssp.py` itself reads (the SSD, the SSVs and each embedded FMU). Add a cap in `fmu/inspect.py` if FMUs from untrusted sources become a use case.
-- Follow-up fixes: a system run writes one row per communication step, so `run_start` also refuses a result table (rows times columns, `time` included) above `Limits.system_max_cells` (5e6, about 100 MB of `result.csv` and of worker memory) unless `force`; and the worker compares the installed OMSimulator with the pin its own code carries (`oms_pin.pinned()`) as well as with `spec.omsimulator`, failing closed with `oms_changed`.
-- Follow-ups: ADR 0004's `Instance` protocol and `oms` extra are superseded here; live system runs use the same gate ([ADR 0010](0010-live-runs-and-the-pane.md)).
+**Costs, and how we handle them**
+- **Choose the step size consciously:** Jacobi coupling adds up to a step of delay.
+- The pin matches the Ubuntu 24.04 build; other platforms fail it until someone reviews and updates it.
+- The first plugin start downloads OMSimulator's binary without TLS verification; the docs describe doing it once, up front.
+- Out of scope: Gauss-Seidel coupling, variable steps, nested systems, SSM, signal dictionaries, unit conversion, input signals for systems.
+
+<details>
+<summary><b>Details:</b> the spikes, the system file, import and export rules, the pin and engine quirks</summary>
+
+**Spike facts.** `stepUntil(t)` can overshoot by a step, so the engine uses `doStep()`. `getValue()` after `doStep()` returns post-exchange values (a connected input equals its source output); with two pythonfmu FMUs in one process the result matched the exact zero-order-hold Jacobi recurrence to 2.4e-15. Without `setResultFile("")` after `instantiate()`, OMSimulator writes `default_res.mat` into the working directory (`removeSignalsFromResults(".*")` alone doesn't stop it), and FMI 3.0 Binary variables slow every step 50-fold. Each `instantiate()` leaks a temporary folder. OMSimulator applies component-level bindings after system-level ones, while SSP 1.0 section 5.2.3 says the higher level wins, and it loses a component-level SSV next to an inline binding on re-export. The 1 ms overshoot is 7.88 % through the real engine (7.84 % for the ideal sampled-data model).
+
+**System file v1 (JSON).** `{"version": 1, "components": {name: {"fmu", "parameters"}}, "connections": [{"from", "to"}], "experiment": {"start_time", "stop_time", "step_size"}}`. Unknown keys are refused; at most 256 KiB; component names match `^[A-Za-z_][A-Za-z0-9_]{0,63}$`; `<component>.<variable>` splits at the first dot; FMU paths are relative to the system file and must resolve, symlinks included, inside the allowed roots; `step_size` is required. `run_start` picks the outputs (default: every component's outputs). Schema: `docs/schemas/system-file.schema.json`, with a drift test.
+
+**The run.** Exactly one of `fmu` and `system`. For systems, `output_interval` is h, and `inputs`, `fmi_type`, `solver` and `relative_tolerance` are refused. The worker verifies the pin, copies each FMU into `work/fmus/` while hashing it, sets `TMPDIR` to `work/tmp`, and builds the model with `addResource`, `addComponent`, `addConnection`, a fixed-step solver and `setValue` before `initialize()`. A run is refused if its result table exceeds `Limits.system_max_cells` (5 million cells, about 100 MB) unless `force` is set. Contract tests run both engines through real workers; a test-only check loads our exports with `SSP(path)` and compares the results.
+
+**Import.** `system_import(source, name?)` writes `imported/<name>/<name>.json` plus private copies `imported/<name>/<component>.fmu`; SSV values become parameters, with SSP 1.0 precedence and a warning per overridden value.
+- Reads only SSD-referenced members through `ZipFile.open`, with streamed caps per member and in total. It first reads the end-of-central-directory record and refuses more than 1000 declared entries or an oversized central directory, then checks the count again after opening.
+- Refuses duplicate names, encryption, other compressions, absolute, `..`, backslash or URI references, `sourceBase="component"` and any DOCTYPE (lxml with no entities, DTD or network). Nested systems, SSM, signal dictionaries, system-level connectors and connection transformations are refused by name.
+- Stages the result, runs the system checks there and passes on at most five warnings; a system with errors is still imported, so `system_check` can fix it. A missing stop time or step gets a default with a warning. Renames the staging folder once and never replaces anything.
+
+**Export.** `system_export(system, dest, paramset?)` is byte-identical on repeat: sorted entries, fixed timestamps, each FMU stored once, one `resources/parameters.ssv`, the step as OMSimulator's annotation, each FMU's sha256 in an `org.agentic-fmi` annotation. It writes SSD 1.0, or 2.0 when an FMI 3.0 connector type needs it; both validate against OMSimulator's bundled XSDs, and re-imports gave identical results. Enumerations travel as `Integer`; no units are written.
+
+**Pin.** `oms_pin.py`, outside `engines/`, hashes the installed `OMSimulator/` tree (sorted relative paths plus each file's sha256, `__pycache__` skipped) without importing it; the pin is `config.OMSIMULATOR_PIN`. The worker checks against both `spec.omsimulator` and its own copy and fails closed with `oms_changed`. This detects a changed install; it doesn't prove where the bytes came from. Ruff TID251 bans `OMSimulator` imports outside `engines/`.
+
+**Engine quirks.** OMSimulator's clock always starts at 0, so system runs must too. A discarded step stalls the clock without an error, so the engine fails a step that makes no progress. A pythonfmu slave that raises aborts the worker, so the run ends as `worker_lost` with the abort in its log. Two pythonfmu FMUs with the same module name are refused by `system_check`.
+
+**Protocol (additive, still version 1).** `SystemSpec`, `ErrorCode.OMS_CHANGED`, and `kind: "system"` in `IndexEntry`, `RunView` and `RunListItem`. Measured `tools/list`: 29,460 bytes for 16 tools.
+
+**Residual exposure, not introduced here.** FMPy unpacks an FMU's `modelDescription.xml` without a size cap, so a hostile FMU can make the server read a very large XML. Add a cap in `fmu/inspect.py` if FMUs from untrusted sources become a use case.
+
+</details>

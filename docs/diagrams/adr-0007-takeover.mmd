@@ -1,0 +1,7 @@
+flowchart TD
+    call["A run_status or run_list call,<br/>or the server starting"] --> state{"Run state?"}
+    state -->|"queued for more than 15 s"| lost
+    state -->|"running or paused"| alive{"Worker alive?<br/>pid exists, not a zombie,<br/>same start time,<br/>heartbeat under 5 s old"}
+    alive -->|"yes"| ok["Leave it alone"]
+    alive -->|"no"| kill["SIGKILL the process group,<br/>confirm it is gone"]
+    kill --> lost["Write failed: worker_lost,<br/>compare-and-set under the store lock"]

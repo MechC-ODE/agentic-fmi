@@ -1,0 +1,8 @@
+flowchart LR
+    claude["Claude<br/>run_control"] -->|"server writes"| cmds["commands/<br/>one file per command"]
+    buttons["Pane<br/>buttons, Set field"] -->|"pane writes"| cmds
+    cmds -->|"each applied once,<br/>in name order"| loop["Worker's wait loop<br/>pause, pacing, steps, inbox"]
+    loop --> outs["outcomes/<br/>one answer per command"]
+    loop --> live["live.json<br/>at most 5 Hz and 100 KB"]
+    outs --> answer["Claude gets the answer<br/>the pane shows a toast"]
+    live --> charts["Pane<br/>values and charts"]

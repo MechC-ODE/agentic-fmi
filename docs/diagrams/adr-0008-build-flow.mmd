@@ -1,0 +1,7 @@
+flowchart LR
+    src["Source Claude wrote<br/>models/Motor.mo or .py"] --> tool["fmu_build<br/>validates and hashes it"]
+    tool --> job["Build job in the run store<br/>(an ordinary run ID)"]
+    job --> worker["Worker builds a private copy<br/>with pythonfmu or omc"]
+    worker -->|"success"| out["generated/Motor/Motor.fmu<br/>and build.json"]
+    worker -->|"failure"| diag["Up to 2000 characters of<br/>file:line errors"]
+    tool -.->|"waits up to 45 s,<br/>then returns the run ID"| claude["Claude"]

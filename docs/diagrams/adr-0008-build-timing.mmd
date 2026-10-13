@@ -1,0 +1,11 @@
+gantt
+    title Why a build can't run inside the tool call
+    dateFormat X
+    axisFormat %M:%S
+    section Client
+    A tool call is cancelled after about 60 s    :c1, 0, 60
+    section fmu_build
+    Waits for the result for up to 45 s          :f1, 0, 45
+    section omc builds
+    Toy model, 6 to 20 s                          :b1, 0, 20
+    Large model, minutes (continues as a job)     :crit, b2, 0, 120

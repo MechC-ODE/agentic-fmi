@@ -1,32 +1,39 @@
 # 0003. File-based, versioned run-store protocol
 
-- Status: Accepted
-- Date: 2026-10-09
+**Status:** Accepted · **Date:** 2026-10-09
 
-## Context
+## Problem
 
-Three parties share run state: the MCP server (Python), the workers (Python, separate processes) and the pane (TypeScript inside Claude Code). The pane's early-access mod API can read and write files (`$.fs`) and poll on a timer (`$.clock`). We don't want to rely on sockets there. The options were:
-
-- Local sockets or HTTP from the workers. These need a server in every worker, port management and a reconnection story.
-- SQLite. It's awkward to read from the pane, and locking over Windows bind mounts is unreliable.
-- MCP notifications. These reach the client, not the pane, and not across restarts.
-- Plain files.
+The server, the workers and the pane (TypeScript inside Claude Code) all share each run's state. The pane's early-access API can only read and write files and poll a timer, and the state must survive a restart of any of the three.
 
 ## Decision
 
-A versioned file protocol under `<workspace>/.agentic-fmi/` is the only contract between Python and the pane, and between the server and the workers. It consists of JSON, JSONL, CSV and PNG files:
-- `index.json` and `events.jsonl`.
-- Per run in `runs/<id>/`: `spec.json`, `status.json`, `summary.json`, `result.csv`, `log.txt`, `live.json`, `plots/` and a `commands/` inbox.
+Versioned plain files under `<workspace>/.agentic-fmi/` are the only contract between them.
 
-Every document carries `"protocol": 1`. Additive changes keep the version, breaking changes bump it, and readers ignore unknown fields. Writes are atomic (a temporary file plus `os.replace`). [docs/protocol.md](../protocol.md) has the details. JSON Schemas are generated from the pydantic models.
+- JSON, JSONL, CSV and PNG: an index, an event log, and one folder per run (the diagram shows who writes what).
+- Every document carries `"protocol": 1`. Additive changes keep the version; readers ignore unknown fields.
+- One writer per file at a time, atomic writes (temporary file, then `os.replace`), unique command file names.
+- Schemas are generated from the pydantic models; [protocol.md](../protocol.md) has every format.
 
-## Consequences
+![Who writes which file: the MCP server writes the index, events, spec and command files; the pane writes command files; the worker writes the status, live values, log, results and command outcomes. The server writes status only for a queued run and for the verdict after a lost worker.](../diagrams/adr-0003-store.svg)
 
-- (+) The store is debuggable with `ls`, `cat` and `jq`, and tests can use fixture directories.
-- (+) It survives restarts of Claude Code, the MCP server or the pane.
-- (+) It works with `$.fs` polling, with no network code in the pane.
-- (+) The files double as the reproducibility record (spec, results, logs).
-- (-) Latency is roughly 100s of ms (polling, `live.json` at most 5 Hz). Tight control loops belong inside a co-simulation, not across this protocol.
-- (-) Bind mounts from Windows are slower and may not deliver change events, so demos run in the `/lab` volume.
-- (-) Concurrency rules are needed: a single writer per file, atomic replace, tolerant readers and a scheme for command file names.
-- (-) The store grows on disk, so a cleanup tool is needed later.
+## Options considered
+
+| Option | Verdict | Why |
+|---|---|---|
+| **Plain files** | Chosen | Fits the pane's API, survives restarts, readable with `cat` |
+| Sockets or HTTP | Rejected | A server in every worker, ports, reconnects |
+| SQLite | Rejected | Hard to read from the pane; unreliable locks on Windows mounts |
+| MCP notifications | Rejected | Don't reach the pane or survive restarts |
+
+## Trade-offs
+
+**Gains**
+- Inspectable with `ls`, `cat` and `jq`; tests use fixture folders.
+- Survives restarts; no network code in the pane.
+- The files are the reproducibility record.
+
+**Costs, and how we handle them**
+- A few hundred milliseconds of latency, so tight control loops stay inside a co-simulation.
+- Slow on Windows bind mounts: keep the store on a Linux filesystem, such as `/lab`.
+- The store grows; a cleanup tool will be needed.

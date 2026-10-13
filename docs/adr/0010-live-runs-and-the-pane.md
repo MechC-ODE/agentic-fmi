@@ -1,53 +1,79 @@
 # 0010. Live runs and the pane: ordinary runs with a gate, a command inbox and live.json
 
-- Status: Accepted, implemented. Amends [0005](0005-pane-as-separate-early-access-plugin.md) (the pane reads no `events.jsonl`) and [0009](0009-systems-with-omsimulator.md) (the gate gets a `Live` handle).
-- Date: 2026-10-11
+**Status:** Accepted, implemented · **Date:** 2026-10-11 · **Amends** [0005](0005-pane-as-separate-early-access-plugin.md) and [0009](0009-systems-with-omsimulator.md)
 
-## Context
+## Problem
 
-Claude and the user can watch and steer a simulation while it runs, for single FMUs and for systems, in a pane inside Claude Code. Spike (i) ([spikes.md](../spikes.md#i-live-control-and-the-pane-api)) settled the facts:
-- FMPy Co-Simulation: a gate in `step_finished` reaches the FMU through `recorder.fmu` and is bit-identical to an own `doStep` loop. It first fires after step 1; wrapping `exitInitializationMode` of an instance passed as `simulate_fmu(fmu_instance=...)` gates the start time. An input that FMPy's input table drives is overwritten before every step. A discard without terminate makes FMPy retry the same step forever; a terminate returns early without an error.
-- FMPy Model Exchange: a live set is wrong unless we own the CVode loop (solver reset, event iteration).
-- OMSimulator: `setValue` after `initialize()` works on tunable parameters and unconnected inputs; a connected input holds for one step; outputs and fixed parameters are refused with a warning. FMI 2.0 discard and terminate both stall the clock; FMI 3.0 ignores terminate.
-- Pane API (Claude Code 2.1.295): `$.fs` has no rename or exclusive create and `write` is not atomic (torn reads seen); `$.env.get` reads the engine's environment; `$.session.root()` is the launch directory; `Raster` draws only on the terminal and `Svg` only elsewhere; `claude plugin test` runs without login.
+Claude and the user want to pause a running simulation, change a value and continue, for single FMUs and systems, while a pane inside Claude Code draws it. Spike (i) set the limits:
 
-Decisions: live runs are ordinary runs (`run_start(live=true)` starts paused at t0, one `run_control` tool); Co-Simulation only; a speed factor (default 1x real time) changeable while running, batch runs at full speed; a bounded `live.json` ring buffer; the pane as a separate plugin that reads only the run store. Options considered: owning the CS loop (rejected: `simulate_fmu` with the gate is equivalent and smaller); owning the ME loop (rejected: ME stays batch); acknowledgements in `status.json` (rejected: one outcome file per command doubles as the replay log); a `storeDir` user setting or a `tool.call` hook for discovery (rejected: both processes inherit Claude Code's environment); session tools (rejected: live runs are ordinary runs).
+| Where | What the spike found |
+|---|---|
+| FMPy, Co-Simulation | A gate between steps can pause and set values, identical to our own loop |
+| FMPy, Model Exchange | Changing a value mid-run is wrong unless we own the solver loop |
+| OMSimulator | Tunable parameters and unconnected inputs can be set after start |
+| The pane's file API | No rename, no exclusive create, writes aren't atomic |
 
 ## Decision
 
-**Live runs.** `RunSpec.live` / `SystemSpec.live` (with `idle_limit_s` from `Timing.live_idle_limit_s`) and the new state `paused` (additive, protocol 1). A live run is refused for an ME-only FMU or `fmi_type="ModelExchange"`, with a hint. It counts toward `max_workers` until it ends. `run_start(live=true)` waits until the run is paused at its start time.
+- **Live runs are ordinary runs.** `run_start(live=true)` starts paused at t0; one tool, `run_control`, pauses, resumes at a speed, steps, sets and stops. Co-Simulation only.
+- **One wait loop** in the worker handles pause, pacing, single steps and new commands. Waiting doesn't count toward the timeout; an idle paused run is stopped.
+- **Commands are files.** The server and the pane write one file per command; the worker applies each once, in order, and writes one answer per command.
+- **`live.json`** holds current values and the recent history of up to three charted signals, written at most 5 times a second.
+- **The pane only reads the store and writes commands.**
 
-**Engine seam.** `simulate(spec, dir, gate)` and `EngineResult` stay. The gate becomes `gate(t, live)`, where `Live` (`engines/base.py`) has `get(names)` and `set(values)`; FMPy (over `recorder.fmu`) and OMSimulator (over the instance) implement it. For a live spec both engines call the gate once at `start_time` after initialization (FMPy: the wrapped `exitInitializationMode`; the engine frees the instance it passed). Engine-neutral outcomes, contract-tested: a step that never advances is `simulation_error` (FMPy: `Limits.stall_repeats` consecutive gate calls at one `t`, which also ends the batch discard hang; OMSimulator: its existing no-progress check); an FMU-requested terminate ends `finished` with `status.reason` "ended early at t" where the engine can tell (FMPy; a result at least one communication step short of `t_stop`, batch runs too, because FMPy itself stops up to a step short when the grid doesn't reach `t_stop`). OMSimulator never reports it: with FMI 2.0 the clock stops, so the run is `simulation_error` ("no progress", as for a discard); with FMI 3.0 it ignores the request and keeps stepping, so the run goes on until the FMU itself fails (Stair 3.0: `simulation_error` when its counter overflows at t = 9.8 to 10) or reaches `t_stop`. Spike (i) item 9; `tests/worker/test_worker_system.py` pins both.
+![Claude's run_control (through the server) and the pane's buttons each write one file per command into commands/. The worker's wait loop applies each once, in name order, writes one answer per command into outcomes/ (Claude gets the answer, the pane shows a toast), and writes live.json at most 5 Hz and 100 KB, which the pane draws as values and charts.](../diagrams/adr-0010-inbox.svg)
 
-**One wait loop** (`live.py`, in the gate): pause, pacing (`wall >= anchor + (t - t_anchor)/speed`, re-anchored on resume and speed change), single steps (whole steps `n`, unpaced, paused again after) and inbox polling share one loop that sleeps at most 50 ms at a time. All time spent waiting is excluded from the watchdog's `ActiveClock`, so `timeout_s` counts stepping only. A run paused longer than its `idle_limit_s` without a command is stopped with its partial result and a reason. The heartbeat thread keeps beating and adds `heartbeat_mono` (CLOCK_MONOTONIC), which the supervisor's staleness check prefers over the wall clock.
+![Claude starts a live run, which waits at t = 0; Claude changes a gain and resumes at double speed; the worker applies each command and reports back; the pane draws the run and can pause it; Claude reads the current values and stops the run.](../diagrams/live-session-sequence.svg)
 
-**Inbox.** `runs/<id>/commands/<ms13>-<server|pane>-<rand8>.json`, at most 4 KiB, one `Command` each (`pause`, `resume{speed?}`, `step{n}`, `set{values}`, `stop`, and the pane's `chart{names}`, see Chart selection). The server creates exclusively (temporary file plus `os.link`); the pane writes once with `$.fs.write`. The worker ignores other names, applies each file at most once in name order (never skipping by comparing with `last_cmd`), retries an unparsable file until `Timing.inbox_grace_s`, then rejects it, and writes exactly one `CommandOutcome` per file to `runs/<id>/outcomes/<id>.json` (with the simulation time `t`) plus a `command` event. Commands and outcomes are the run's replay log. `status.last_cmd` is a display field. Only the worker writes `status.json`. `set` accepts scalar inputs that nothing drives and tunable parameters within `[min, max]`; one function, `live.settable`, decides for the server (before writing) and for the worker (a pane's set may be wrong; it is rejected and the run goes on).
+## Options considered
 
-**live.json.** `LiveSnapshot`: the current value and unit of every scalar recorded output (at most `Limits.live_max_columns`) and the last `Limits.live_points` points of the charted outputs (the first `Limits.live_variables` until a `chart` command changes the selection, see Chart selection). Only the heartbeat thread writes it, atomically, at most 5 Hz and only on change, under `Limits.live_max_bytes` (100 KB). Batch runs neither poll the inbox nor write `live.json`. `run_status(values=[...])` (at most 25 names, recorded outputs only) answers from it.
+| Option | Verdict | Why |
+|---|---|---|
+| **A gate inside FMPy's `simulate_fmu`** | Chosen | Same behaviour as our own loop, far less code |
+| Our own Model Exchange loop | Rejected | Model Exchange runs stay batch |
+| **One answer file per command** | Chosen | Every command is answered; the files are a replay log |
+| Acknowledgements in `status.json` | Rejected | A second writer, and no history |
+| **Live runs as ordinary runs** | Chosen | Reuses store, supervision, results and plots |
+| Separate session tools | Rejected | A second tool family for the same thing |
 
-**Tools.** `run_control(run_id, action, n?, dt?, values?, speed?, wait_s)`: `dt` becomes `n = ceil(dt/h)`; `speed` is an argument of `resume`; it waits for the outcome, the run's end or `wait_s`, whichever comes first, and returns a `RunView` without a published output schema. `run_start` gains `live`, `run_status` gains `values`. The server side lives in `control.py`. `tools/list` stays under the 32,000-byte cap by trimming descriptions (31,125 bytes for 17 tools).
+## Trade-offs
 
-**The pane** (`pane/`, plugin `agentic-fmi-pane`, depends on `agentic-fmi`) reads only the run store: `index.json`, and per run `spec.json`, `status.json`, `live.json`, `build.json` and the outcomes of the commands it wrote; it writes only `commands/`. It finds the store as `config.py` does: `AFMI_STORE_DIR`, else `<session root>/.agentic-fmi` (the MCP server's workspace is the launch directory). Toasts come from state transitions in `index.json` and `status.json`, not from `events.jsonl` (amending 0005). One downsampler per variable feeds a `Raster` (terminal) or an `Svg` (elsewhere); the system diagram is a fixed grid in component order with labelled edges. Fixtures are generated from the pydantic models (`scripts/pane_fixtures.py`), with a drift test.
+**Gains**
+- No new run kind or tool family; the core works without the pane.
+- One loop owns all waiting, so pause, pacing and the watchdog can't disagree.
+- The command and answer files replay what happened.
 
-## Consequences
+**Costs, and how we handle them**
+- Co-Simulation only; no live rewiring or Gauss-Seidel coupling.
+- A command lands after one poll and one step (about 0.1 s), so tight loops belong inside a co-simulation.
+- A run killed by its timeout leaves its pending commands unanswered; readers also watch for the run's end.
+- The pane depends on Claude Code's early-access mod API.
 
-- (+) No new run kind, worker or tool family: live runs reuse the store, supervision, results, plots and comparison. The core works fully without the pane.
-- (+) One loop owns all waiting, so pause, pacing, steps and the watchdog can't disagree; the stall check fixes a batch hang too.
-- (+) Command files plus outcomes reproduce a live run from its run directory.
-- (-) Live control is Co-Simulation only; ME runs stay batch. Live rewiring, Gauss-Seidel coupling, variable steps, array or String sets, a `get` command and commands on batch runs are out of scope.
-- (-) Latency is a poll period plus a step (about 0.1 s stepping, 50 ms paused); tight loops belong inside a co-simulation.
-- (-) A torn pane file can delay later commands by up to the grace (strict name order).
-- (-) A run killed by its timeout (or lost) gets no final inbox sweep: its pending commands keep no outcome, so a reader waiting for one also watches for a terminal state.
-- (-) `run_compare` lists `live` as a spec difference but can't show the commands; the outcomes are in the run directory.
-- (-) The pane depends on the early-access mod API; Raster/Svg limits and `$` rules may change between Claude Code releases.
-- Follow-ups: none open. The skills, the user guide and the diagrams were updated with the implementation.
+## Chart selection (added later)
 
-## Chart selection
+The user picks which signals to chart, up to three. The worker keeps the recent history of every recorded output and publishes only the selected ones in `live.json`, so a newly picked signal appears with its full history. A pane-only `chart` command replaces the selection; it never pauses or steps the run, and a bad one is rejected while the run goes on.
 
-Added later, additively (protocol stays 1): the pane's user picks which signals to chart, at most 3, by clicking a signal in the values table (grouped by component; the chart's colour is on the signal's dot) and removes a chart with a second click or the ✕ on the chart.
+| Option | Verdict | Why |
+|---|---|---|
+| **Worker keeps every history, publishes the selection** | Chosen | A new chart starts with its full history |
+| Publish every signal's history | Rejected | 200 signals of 500 points don't fit in 100 KB |
+| Keep the selection in the pane | Rejected | A new chart would start empty |
 
-- **Decision.** The worker is the source of truth. `LiveBuffer` keeps the last `Limits.live_points` points of every column in memory, fed by one `live.get` of all columns per communication point, and publishes in `live.json` the history of the current selection only (`series`). A new inbox action `chart` with `Command.names` (the whole new selection, in order) replaces it; the pane's selection is simply the keys of `live.series`, so a rejected command changes nothing on screen. `Limits.live_variables` is 3: the default selection (the first outputs) and the most a `chart` may name.
-- **Rules.** A good `chart` takes effect at once in any state and never pauses, resumes, steps, stops or changes the speed; a bad one (unknown name, with close matches, a repeated name, more than 3) is rejected and the run goes on. `run_control` does not offer `chart` (it is a pane action, and `tools/list` stays as it was).
-- **Why not the alternatives.** Publishing every column's history would not fit `Limits.live_max_bytes` (200 columns of 500 points). A selection kept in the pane would need a history the pane can't read (it never opens `result.csv`) and would lose the points before the pick. A selection file next to `live.json` would add a second writer to the store.
-- **Cost.** The gate reads every recorded column at every communication point instead of the first four (the same read feeds the current values), about 0.7 microseconds per extra column on FMPy; the per-step time of BouncingBall and of the PI + plant loop is unchanged (measured, 5 runs each at speed 1000).
-- **Limit.** The pane computes a new selection from the `live.json` it shows, so two clicks before the next write act on the same selection.
+Cost: the worker reads every output at every step, about 0.7 µs per extra signal; measured step times didn't change.
+
+<details>
+<summary><b>Details:</b> the spike, the engine seam, the inbox, live.json and the tools</summary>
+
+- **More spike facts.** FMPy's gate in `step_finished` reaches the FMU through `recorder.fmu`; it first fires after step 1, and wrapping `exitInitializationMode` of an instance passed as `simulate_fmu(fmu_instance=...)` gates the start time. A value FMPy's input table drives is overwritten before every step. A discard without terminate makes FMPy retry the same step forever; a terminate returns early without an error. In OMSimulator a connected input holds a set value for one step; outputs and fixed parameters are refused with a warning; with FMI 2.0 discard and terminate both stall the clock, and FMI 3.0 ignores terminate. The pane's `$.env.get` reads the engine's environment and `$.session.root()` is the launch directory; `Raster` draws only on the terminal and `Svg` only elsewhere.
+- **Engine seam.** `simulate(spec, dir, gate)` and `EngineResult` stay; the gate becomes `gate(t, live)`, where `Live` (`engines/base.py`) has `get(names)` and `set(values)`. For a live spec both engines call the gate once at the start time after initialization.
+- **Engine-neutral outcomes**, contract-tested. A step that never advances is `simulation_error` (FMPy: `Limits.stall_repeats` gate calls at one `t`, which also ends the batch discard hang; OMSimulator: its no-progress check). An FMU-requested terminate ends `finished` with "ended early at t" where the engine can tell (FMPy). OMSimulator never reports it: with FMI 2.0 the run is a no-progress `simulation_error`; with FMI 3.0 it keeps stepping.
+- **Live specs.** `RunSpec.live` and `SystemSpec.live`, with `idle_limit_s`, and the state `paused` (additive, protocol 1). A live run counts toward `max_workers` until it ends; `run_start(live=true)` waits until it is paused at its start time. A Model-Exchange-only FMU is refused with a hint.
+- **Wait loop.** A step may start when `wall >= anchor + (t - t_anchor) / speed`, re-anchored on every resume and speed change. Single steps are whole steps `n`, unpaced, paused again afterwards. The loop sleeps at most 50 ms at a time; waiting is excluded from the watchdog's active clock. The heartbeat adds `heartbeat_mono` (CLOCK_MONOTONIC), which the supervisor prefers.
+- **Inbox.** Names are `<ms13>-<server|pane>-<rand8>.json`, at most 4 KiB, one `Command` each: `pause`, `resume{speed?}`, `step{n}`, `set{values}`, `stop`, and the pane's `chart{names}`. The server creates files exclusively (temporary file plus `os.link`); the pane writes once with `$.fs.write`. The worker applies files in name order, retries an unparsable one until `Timing.inbox_grace_s` and then rejects it (so a torn pane file can delay later commands by up to the grace), and writes one `CommandOutcome` per file plus a `command` event. Only the worker writes `status.json`; `status.last_cmd` is for display.
+- **What `set` accepts.** Scalar inputs that nothing drives and tunable parameters within `[min, max]`. One function, `live.settable`, decides for the server (before writing) and for the worker (a pane's set may be wrong; it is rejected and the run goes on).
+- **live.json.** `LiveSnapshot`: the current value and unit of every scalar recorded output (at most `Limits.live_max_columns`) and the last `Limits.live_points` points of the charted ones. Written only by the heartbeat thread, atomically, at most 5 Hz, only on change, under `Limits.live_max_bytes` (100 KB). Batch runs don't write it. `run_status(values=[...])` (at most 25 names) answers from it.
+- **Chart command.** `Command.names` is the whole new selection, in order, at most `Limits.live_variables` (3), which is also the default selection (the first outputs). Unknown names (with close matches), repeats and more than 3 are rejected. `run_control` doesn't offer `chart`, so `tools/list` is unchanged. Two clicks before the next `live.json` write act on the same selection.
+- **Tools.** `run_control(run_id, action, n?, dt?, values?, speed?, wait_s)`: `dt` becomes `n = ceil(dt / h)`; it waits for the outcome, the run's end or `wait_s`. The server side lives in `control.py`. `tools/list` stayed under 32,000 bytes by trimming descriptions (31,125 bytes for 17 tools). `run_compare` lists `live` as a spec difference but can't show the commands.
+- **The pane** finds the store as `config.py` does (`AFMI_STORE_DIR`, else `<session root>/.agentic-fmi`), because it inherits Claude Code's environment. It reads `index.json` and per run `spec.json`, `status.json`, `live.json`, `build.json` and its own command outcomes; toasts come from state changes, not `events.jsonl`. One downsampler per signal feeds the terminal and desktop drawings; the system diagram is a fixed grid. Fixtures are generated from the pydantic models, with a drift test.
+
+</details>

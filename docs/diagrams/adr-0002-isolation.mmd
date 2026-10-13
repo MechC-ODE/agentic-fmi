@@ -1,0 +1,11 @@
+flowchart LR
+    fail["Segfault, hang,<br/>exit(), stray print"]:::bad
+    server["MCP server process<br/>stdout carries the MCP protocol<br/>reads modelDescription.xml only"]
+    worker["Worker process, one per run<br/>runs the FMU's native code<br/>stdout and stderr go to log.txt<br/>heartbeat thread and watchdog"]:::native
+    store[("Run store")]
+    server -->|"spawns, supervises,<br/>kills the process group"| worker
+    worker -->|"status, results"| store
+    store -->|"reads"| server
+    fail -.->|"stays inside"| worker
+    classDef native fill:#fde9d9,stroke:#c4662a
+    classDef bad fill:#fbe3e3,stroke:#b42318,color:#b42318

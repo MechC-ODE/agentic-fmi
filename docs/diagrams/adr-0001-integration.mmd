@@ -1,0 +1,6 @@
+flowchart LR
+    clients["Any MCP client<br/>Claude Code, Claude Desktop, others"]
+    mcp["Agentic FMI MCP server<br/>Python, over stdio<br/>typed tools, compact results"]
+    libs["Python FMI libraries<br/>FMPy, OMSimulator, pythonfmu<br/>(run inside workers)"]
+    clients -->|"tool calls"| mcp
+    mcp -->|"starts runs and builds"| libs

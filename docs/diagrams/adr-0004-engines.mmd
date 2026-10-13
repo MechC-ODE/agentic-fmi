@@ -1,0 +1,6 @@
+flowchart LR
+    spec["Run spec"] --> worker["Worker"]
+    worker -->|"one FMU"| fmpy["FMPy<br/>simulate(spec, dir, gate)"]
+    worker -->|"connected FMUs"| oms["OMSimulator 3<br/>simulate(spec, dir, gate)"]
+    fmpy --> result["The same EngineResult<br/>result.csv, summary, plots, comparisons"]
+    oms --> result
