@@ -9,8 +9,8 @@
       "type": "integer"
     },
     "response_style": {
-      "default": "talkative",
-      "description": "talkative: tool results carry summaries and Claude explains them. ninja: run, build and live-control results carry a status line and Claude replies with it.",
+      "default": "ninja",
+      "description": "ninja: run, build and live-control results carry a status line and Claude replies with it. talkative: tool results carry summaries and Claude explains them.",
       "enum": [
         "talkative",
         "ninja"

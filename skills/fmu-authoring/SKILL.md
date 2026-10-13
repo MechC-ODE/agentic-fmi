@@ -17,7 +17,20 @@ You write the source file yourself with the Write tool (the user sees it in the 
 | Build time | A second or two | 6 to 20 s for a small model, minutes for a large one |
 | FMU binaries | linux64 and win64 (only Linux runs here) | linux64 only |
 
-If the user wants both a plant and a controller, make the plant Modelica and the controller Python. Examples to adapt: [pi_controller.py](examples/pi_controller.py) (input `y`, output `u`, tunable `Kp`, `Ki`, `r`) and [MSD.mo](examples/MSD.mo) (a mass-spring-damper with input `F`, outputs `x` and `v`, parameters `m`, `k`, `d`). They are made to be wired together later: controller `u` to plant `F`, plant `x` to controller `y`.
+If the user wants both a plant and a controller, make the plant Modelica and the controller Python (or Python too, when `omc` isn't installed).
+
+## Ready-made examples
+
+Tested sources that build offline. Use them unchanged when the user asks for an example or a demo, and adapt them when writing something similar:
+
+| File | What it is | Interface |
+|---|---|---|
+| [bouncing_ball.py](examples/bouncing_ball.py) | A ball that falls and bounces; impacts found exactly | outputs `h`, `v`; tunable `e`, fixed `g` |
+| [pi_controller.py](examples/pi_controller.py) | PI controller | input `y`, output `u`; tunable `Kp`, `Ki`, `r` |
+| [MSD.mo](examples/MSD.mo) | Mass-spring-damper plant in Modelica (needs `omc`) | input `F`, outputs `x`, `v`; parameters `m`, `k`, `d` |
+| [MSD.py](examples/MSD.py) | The same plant in Python, for when `omc` is missing | the same as `MSD.mo` |
+
+The controller and the plant are made to be wired together: controller `u` to plant `F`, plant `x` to controller `y` (the system-builder example `loop.json`). `MSD.mo` and `MSD.py` both build to `generated/MSD/MSD.fmu`, so copy only one of them into a workspace. To use an example: Read it, Write it unchanged to `models/<file>` in the workspace, then `fmu_build` it.
 
 ## Workflow
 

@@ -14,6 +14,11 @@
 #                       as it is. When unset, a venv under CLAUDE_PLUGIN_DATA (kept across
 #                       plugin updates) is created on first start; that start downloads Python and
 #                       the dependencies, so it can take a minute.
+#   UV_CACHE_DIR        with that plugin venv, uv's cache defaults to CLAUDE_PLUGIN_DATA/uv-cache,
+#                       next to the venv. uv hardlinks packages from its cache into a venv, and a
+#                       hardlink can't cross filesystems: a cache elsewhere (a separate home volume,
+#                       WSL, a container) makes uv copy the whole environment instead (about
+#                       400 MB more) and warn "Failed to hardlink files". A value the user set wins.
 set -eu
 
 if [ "$#" -ne 1 ]; then
@@ -31,7 +36,8 @@ root=${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
 
 if [ -z "${UV_PROJECT_ENVIRONMENT:-}" ] && [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
     UV_PROJECT_ENVIRONMENT=$CLAUDE_PLUGIN_DATA/venv
-    export UV_PROJECT_ENVIRONMENT
+    UV_CACHE_DIR=${UV_CACHE_DIR:-$CLAUDE_PLUGIN_DATA/uv-cache}
+    export UV_PROJECT_ENVIRONMENT UV_CACHE_DIR
 fi
 
 exec uv run --quiet --locked --no-dev --project "$root" afmi mcp --workspace "$1"

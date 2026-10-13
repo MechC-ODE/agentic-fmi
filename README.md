@@ -29,7 +29,8 @@ Agentic FMI turns Claude Code into a simulation assistant for [FMI](https://fmi-
 | *"Connect them in a closed loop and tune Kp and Ki for less than 5 % overshoot."* | A system co-simulated with OMSimulator, tuned run by run. |
 | *"Export the tuned loop as tuned.ssp with its parameters." / "Import plant.ssp and run it."* | SSP and SSV import and export, so systems and parameter sets move to and from other SSP tools. |
 | *"Start the loop live, step it, then set Kp to 8 while it runs."* | A live run you and Claude steer together, charted in the pane (`/fmi`). |
-| *"Ninja mode."* | Status-only replies: `🥷 r12 done: BouncingBall, t=3 s.` |
+| *"Show me an example."* | A ready-made model that ships with the plugin, built and run in seconds. Nothing is downloaded. |
+| *"Talkative mode."* | Claude explains every result. The default, ninja mode, answers a run with one line: `🥷 r12 done: BouncingBall, t=3 s.` |
 
 ## Quick start
 
@@ -68,9 +69,11 @@ claude plugin install agentic-fmi@agentic-fmi
 claude plugin install agentic-fmi-pane@agentic-fmi   # optional: the live pane
 ```
 
-Start Claude Code in a folder with FMUs. The first start sets up the plugin's Python environment with uv (once, a minute or two). Building FMUs from Modelica also needs [OpenModelica](https://openmodelica.org/) (`omc`) on the path.
+Start Claude Code in a folder with FMUs, or in an empty one and ask for an example. The first start sets up the plugin's Python environment with uv (once, a minute or two). Building FMUs from Modelica also needs [OpenModelica](https://openmodelica.org/) (`omc`) on the path.
 
 ### First prompts
+
+> Show me an example.
 
 > What FMUs are in this folder?
 
@@ -94,9 +97,9 @@ Type `/fmi` to open the live pane. The [user guide](docs/user-guide.md) walks th
 - **FMUs:** cards for the FMUs you built, with their interface and build provenance.
 - **Runs:** every run, one click to open it. Keys **1** to **4** switch tabs.
 
-## Talkative or ninja
+## Ninja or talkative
 
-Claude explains results by default. Say *"ninja mode"* and run, build and live-control replies shrink to one status line until you say *"talkative mode"*.
+Replies are short by default (ninja mode): runs, builds and live-control steps come back as one status line. Say *"talkative mode"* and Claude explains every result, until you say *"ninja mode"*.
 
 <p align="center"><img src="docs/images/ninja-mode.png" alt="Ninja mode: Claude answers a simulation request with one status line" width="560"></p>
 

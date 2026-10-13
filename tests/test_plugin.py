@@ -38,10 +38,12 @@ def _json(path: Path) -> dict[str, Any]:
 
 
 def _fake_uv(directory: Path) -> Path:
-    """A ``uv`` that reports its environment and arguments on stderr and exits."""
+    """A ``uv`` that reports its environment, its cache and its arguments on stderr and exits."""
     uv = directory / "uv"
     uv.write_text(
-        '#!/bin/sh\necho "env=${UV_PROJECT_ENVIRONMENT:-unset} args=$*" >&2\n', encoding="utf-8"
+        "#!/bin/sh\n"
+        'echo "env=${UV_PROJECT_ENVIRONMENT:-unset} cache=${UV_CACHE_DIR:-unset} args=$*" >&2\n',
+        encoding="utf-8",
     )
     uv.chmod(0o755)
     return uv
@@ -112,19 +114,34 @@ def test_launcher_reuses_the_environment_of_the_dev_container(tmp_path: Path) ->
     assert done.returncode == 0
     assert done.stdout == ""
     assert done.stderr.strip() == (
-        "env=/dev/venv args=run --quiet --locked --no-dev --project /plugin "
+        "env=/dev/venv cache=unset args=run --quiet --locked --no-dev --project /plugin "
         "afmi mcp --workspace /lab"
     )
 
 
-def test_launcher_keeps_its_venv_in_the_plugin_data_directory(tmp_path: Path) -> None:
+def test_launcher_keeps_its_venv_and_uv_cache_in_the_plugin_data_directory(
+    tmp_path: Path,
+) -> None:
+    """Cache and venv on one filesystem, so uv hardlinks instead of copying the environment."""
     _fake_uv(tmp_path)
     done = _launch(
         str(tmp_path), "/my dir", CLAUDE_PLUGIN_ROOT="/plugin", CLAUDE_PLUGIN_DATA="/data"
     )
     assert done.stdout == ""
-    assert done.stderr.startswith("env=/data/venv args=run ")
+    assert done.stderr.startswith("env=/data/venv cache=/data/uv-cache args=run ")
     assert done.stderr.strip().endswith("--workspace /my dir")
+
+
+def test_launcher_keeps_a_uv_cache_the_user_chose(tmp_path: Path) -> None:
+    _fake_uv(tmp_path)
+    done = _launch(
+        str(tmp_path),
+        "/lab",
+        CLAUDE_PLUGIN_ROOT="/plugin",
+        CLAUDE_PLUGIN_DATA="/data",
+        UV_CACHE_DIR="/fast/uv",
+    )
+    assert done.stderr.startswith("env=/data/venv cache=/fast/uv args=run ")
 
 
 def test_launcher_without_uv_says_so_on_stderr(tmp_path: Path) -> None:
@@ -220,3 +237,34 @@ def test_the_ssv_snippet_in_the_skill_parses() -> None:
 def test_fmi_expert_points_to_the_system_builder_skill() -> None:
     text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
     assert "(../system-builder/SKILL.md)" in text
+
+
+SKILL_FILES = sorted((ROOT / "skills").glob("*/*.md"))
+EXAMPLE_SOURCES = ("bouncing_ball.py", "pi_controller.py", "MSD.mo", "MSD.py")
+
+
+@pytest.mark.parametrize("path", SKILL_FILES, ids=lambda path: f"{path.parent.name}/{path.name}")
+def test_every_relative_link_in_a_skill_resolves(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    for target in re.findall(r"\]\(([^)#\s]+)(?:#[^)]*)?\)", text):
+        if not target.startswith(("http://", "https://")):
+            assert (path.parent / target).exists(), f"{path.name} links to missing {target}"
+
+
+def test_fmi_expert_forbids_downloads_and_points_to_the_ready_made_examples() -> None:
+    """A user who asks for an example gets a bundled one, built offline, never a download."""
+    text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    assert "Never download or install anything on your own" in text
+    for source in ("bouncing_ball.py", "pi_controller.py", "MSD.py"):
+        assert f"(../fmu-authoring/examples/{source})" in text
+    assert "example or demo" in text.split("---")[1]
+
+
+def test_the_authoring_skill_lists_every_bundled_example() -> None:
+    examples = ROOT / "skills" / "fmu-authoring" / "examples"
+    text = (examples.parent / "SKILL.md").read_text(encoding="utf-8")
+    assert sorted(p.name for p in examples.iterdir() if p.suffix in (".py", ".mo")) == sorted(
+        EXAMPLE_SOURCES
+    )
+    for source in EXAMPLE_SOURCES:
+        assert f"(examples/{source})" in text

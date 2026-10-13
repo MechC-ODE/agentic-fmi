@@ -23,7 +23,7 @@ Details for the [fmi-expert skill](SKILL.md): the tools in one table, the input 
 | `system_check` | Check a system file without running it: FMU paths, names, connection direction, types, units, drivers, parameters and the experiment; errors and warnings come with their fixes | `system` |
 | `system_import` | Import a flat SSP from any tool as `imported/<name>/<name>.json` plus private FMU copies; never modifies the `.ssp` | `source`, `name` |
 | `system_export` | Export a system file as a standard `.ssp` (SSD, FMUs, one SSV, the step); byte-identical on repeat, never overwrites | `system`, `dest`, `paramset` |
-| `response_style` | Set the reply style: `ninja` (run, build and live-control results come as one 🥷 status line, which you reply with) or `talkative` (summaries, the default). Without `style`, reports the current one. Kept in the workspace | `style` |
+| `response_style` | Set the reply style: `ninja` (the default: run, build and live-control results come as one 🥷 status line, which you reply with) or `talkative` (summaries). Without `style`, reports the current one. Kept in the workspace | `style` |
 
 Run IDs look like `r3`. `fmu` is a path relative to the workspace, as `fmu_list` shows it.
 

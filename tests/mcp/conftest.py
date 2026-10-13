@@ -18,14 +18,20 @@ import pytest
 from mcp_support import FAST_TIMING, Session, open_session
 
 from agentic_fmi.config import Config, load_config
+from agentic_fmi.store import runstore
+from agentic_fmi.store.protocol import Preferences
 
 SynthFmu = Callable[..., Path]
 
 
 @pytest.fixture
 def mcp_config(workspace: Path) -> Config:
-    """The server configuration for the test workspace, with :data:`FAST_TIMING`."""
-    return replace(load_config(workspace), timing=FAST_TIMING)
+    """The server configuration for the test workspace, with :data:`FAST_TIMING`, in talkative
+    mode: these tests read the full summaries that talkative mode returns. The default style
+    (ninja) has its own tests in ``test_mcp_style.py``, which override this fixture."""
+    config = replace(load_config(workspace), timing=FAST_TIMING)
+    runstore.write_preferences(config.store_dir, Preferences(response_style="talkative"))
+    return config
 
 
 @pytest.fixture
