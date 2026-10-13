@@ -38,10 +38,12 @@ def _json(path: Path) -> dict[str, Any]:
 
 
 def _fake_uv(directory: Path) -> Path:
-    """A ``uv`` that reports its environment and arguments on stderr and exits."""
+    """A ``uv`` that reports its environment, its cache and its arguments on stderr and exits."""
     uv = directory / "uv"
     uv.write_text(
-        '#!/bin/sh\necho "env=${UV_PROJECT_ENVIRONMENT:-unset} args=$*" >&2\n', encoding="utf-8"
+        "#!/bin/sh\n"
+        'echo "env=${UV_PROJECT_ENVIRONMENT:-unset} cache=${UV_CACHE_DIR:-unset} args=$*" >&2\n',
+        encoding="utf-8",
     )
     uv.chmod(0o755)
     return uv
@@ -112,19 +114,34 @@ def test_launcher_reuses_the_environment_of_the_dev_container(tmp_path: Path) ->
     assert done.returncode == 0
     assert done.stdout == ""
     assert done.stderr.strip() == (
-        "env=/dev/venv args=run --quiet --locked --no-dev --project /plugin "
+        "env=/dev/venv cache=unset args=run --quiet --locked --no-dev --project /plugin "
         "afmi mcp --workspace /lab"
     )
 
 
-def test_launcher_keeps_its_venv_in_the_plugin_data_directory(tmp_path: Path) -> None:
+def test_launcher_keeps_its_venv_and_uv_cache_in_the_plugin_data_directory(
+    tmp_path: Path,
+) -> None:
+    """Cache and venv on one filesystem, so uv hardlinks instead of copying the environment."""
     _fake_uv(tmp_path)
     done = _launch(
         str(tmp_path), "/my dir", CLAUDE_PLUGIN_ROOT="/plugin", CLAUDE_PLUGIN_DATA="/data"
     )
     assert done.stdout == ""
-    assert done.stderr.startswith("env=/data/venv args=run ")
+    assert done.stderr.startswith("env=/data/venv cache=/data/uv-cache args=run ")
     assert done.stderr.strip().endswith("--workspace /my dir")
+
+
+def test_launcher_keeps_a_uv_cache_the_user_chose(tmp_path: Path) -> None:
+    _fake_uv(tmp_path)
+    done = _launch(
+        str(tmp_path),
+        "/lab",
+        CLAUDE_PLUGIN_ROOT="/plugin",
+        CLAUDE_PLUGIN_DATA="/data",
+        UV_CACHE_DIR="/fast/uv",
+    )
+    assert done.stderr.startswith("env=/data/venv cache=/fast/uv args=run ")
 
 
 def test_launcher_without_uv_says_so_on_stderr(tmp_path: Path) -> None:
